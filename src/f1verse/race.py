@@ -1,7 +1,12 @@
-"""Race loader.
+"""Race loader — the story a race session tells.
 
 ``f1verse.load(year, round)`` builds a :class:`Race` from public REST data
 plus the official live-timing archive. Seasons 2023 onward.
+
+:class:`Race` extends :class:`f1verse.session.Session` with what only a
+race has: a lead that changes hands, a representative pace once the
+neutralised laps are excluded, and a timeline of the things that decided
+it. ``f1verse.load_session`` loads the other sessions of the weekend.
 """
 from datetime import datetime
 from statistics import median
@@ -9,46 +14,18 @@ from statistics import median
 from . import feeds
 from ._json import jsonsafe
 from .gaps import format_seconds
-from .sources import livetiming, openf1
+from .session import SCHEMA_VERSION, Session, session_class
+from .sources import openf1
 
 
 def _iso(s: str) -> datetime:
     return datetime.fromisoformat(s)
 
 
-class Race:
-    def __init__(self, year: int, rnd: int):
-        self.year, self.round = year, rnd
-        s = openf1.resolve_race(year, rnd)
-        self.session_key = s["session_key"]
-        self.meeting = s["meeting"]
-        self.info = s
-        self._api_path = None
+class Race(Session):
+    """A race or sprint: classification, lead, pace, timeline, story."""
 
-        key = {"session_key": self.session_key}
-        self.drivers = {d["driver_number"]: d for d in openf1.get("drivers", **key)}
-        self.laps = sorted(openf1.get("laps", **key),
-                           key=lambda l: (l["driver_number"], l["lap_number"]))
-        self.result = openf1.get("session_result", **key)
-        self.race_control = openf1.get("race_control", **key)
-        self.stints_raw = openf1.get("stints", **key)
-        self.pits = openf1.get("pit", **key)
-        self._p1 = sorted(openf1.get("position", position=1, **key),
-                          key=lambda p: p["date"])
-        self.total_laps = max((l["lap_number"] for l in self.laps), default=0)
-
-    # -- identity helpers ---------------------------------------------------
-    def abbr(self, num) -> str:
-        d = self.drivers.get(num, {})
-        return d.get("name_acronym") or str(num)
-
-    @property
-    def api_path(self) -> str:
-        """Live-timing archive path (resolved lazily, cached)."""
-        if self._api_path is None:
-            self._api_path = livetiming.api_path(
-                self.year, self.meeting["meeting_name"])
-        return self._api_path
+    KIND = "Race"
 
     # -- story --------------------------------------------------------------
     def leader_runs(self) -> list:
@@ -86,34 +63,6 @@ class Race:
             led[r["abbr"]] = led.get(r["abbr"], 0) + r["to"] - r["from"] + 1
         return dict(sorted(led.items(), key=lambda kv: -kv[1]))
 
-    def interruptions(self) -> dict:
-        """SC/VSC lap bands and red-flag laps from race control."""
-        bands, red, start = [], [], None
-        for m in sorted(self.race_control, key=lambda m: m["date"]):
-            msg, lap = (m.get("message") or "").upper(), m.get("lap_number")
-            if msg.startswith("RED FLAG") and lap:
-                red.append(int(lap))
-            if ("SAFETY CAR DEPLOYED" in msg or "VSC DEPLOYED" in msg
-                    or "VIRTUAL SAFETY CAR DEPLOYED" in msg):
-                start = int(lap or 1)
-            if start is not None and ("ENDING" in msg or "IN THIS LAP" in msg
-                                      or "CLEAR" in msg and "TRACK" in msg):
-                bands.append([start, int(lap or start)])
-                start = None
-        if start is not None:
-            bands.append([start, self.total_laps])
-        return {"sc_vsc_bands": bands, "red_flag_laps": sorted(set(red))}
-
-    def stints(self) -> dict:
-        out = {}
-        for s in sorted(self.stints_raw,
-                        key=lambda s: (s["driver_number"], s["stint_number"])):
-            out.setdefault(self.abbr(s["driver_number"]), []).append({
-                "compound": s.get("compound"),
-                "from": s.get("lap_start"), "to": s.get("lap_end"),
-                "laps": (s.get("lap_end") or 0) - (s.get("lap_start") or 0) + 1})
-        return out
-
     def race_pace(self, threshold: float = 1.07) -> dict:
         """Median representative pace. Domain rules by default:
         pit-out laps, pit-in laps, SC/VSC laps and quicklap threshold."""
@@ -139,12 +88,8 @@ class Race:
     def results(self) -> list:
         """Classified results; OpenF1 already applies '+1 LAP' convention.
         FIA gives DNFs no position — ordered by laps completed after that."""
-        rows = sorted(self.result,
-                      key=lambda r: (r.get("position") is None,
-                                     r.get("position") or 0,
-                                     -(r.get("number_of_laps") or 0)))
         out = []
-        for r in rows:
+        for r in self._ordered():
             g = r.get("gap_to_leader")
             if r.get("dsq"):
                 gap = "DSQ"
@@ -158,11 +103,8 @@ class Race:
                 gap = ""
             else:
                 gap = format_seconds(float(g))
-            d = self.drivers.get(r["driver_number"], {})
             out.append({"position": r.get("position"),
-                        "abbr": self.abbr(r["driver_number"]),
-                        "name": d.get("full_name"),
-                        "team": d.get("team_name"),
+                        **self._entry(r["driver_number"]),
                         "gap": gap, "points": r.get("points") or 0.0,
                         "laps": r.get("number_of_laps")})
         return out
@@ -208,9 +150,11 @@ class Race:
         """One call, whole story — JSON-safe."""
         m = self.meeting
         return jsonsafe({
+            "schema_version": SCHEMA_VERSION,
             "event": {"name": m["meeting_name"],
                       "location": self.info.get("location"),
                       "round": self.round, "year": self.year,
+                      "session": self.name,
                       "date": (self.info.get("date_start") or "")[:10],
                       "total_laps": self.total_laps},
             "results": self.results(),
@@ -220,6 +164,7 @@ class Race:
             "stints": self.stints(),
             "race_pace": self.race_pace(),
             "interruptions": self.interruptions(),
+            "state": self.lifecycle,
             "sources": ["openf1", "livetiming-index"],
         })
 
@@ -227,3 +172,30 @@ class Race:
 def load(year: int, rnd: int) -> Race:
     """``f1verse.load(2026, 12)`` → :class:`Race` (2023+ seasons)."""
     return Race(year, rnd)
+
+
+def load_session(year: int, rnd: int, session: str = "Race"):
+    """Any session of a weekend, as the right kind of object.
+
+    >>> f1verse.load_session(2026, 12, "Qualifying").segments()["q3"]
+
+    *session* is matched as OpenF1 spells it — ``Race``, ``Qualifying``,
+    ``Sprint``, ``Sprint Qualifying``, ``Practice 1``… A sprint is a race
+    and loads as :class:`Race`; sprint qualifying loads as
+    :class:`~f1verse.session.Qualifying`. Unknown names raise
+    ``LookupError`` listing the sessions that weekend actually had.
+    """
+    s = openf1.resolve_session(year, rnd, session)
+    cls = session_class(s["session_name"], s.get("session_type"))
+    return cls(year, rnd, s["session_name"])
+
+
+def sessions(year: int, rnd: int) -> list:
+    """What sessions that round has, in order — the input to *load_session*."""
+    meeting = openf1.resolve_session(year, rnd, "Race")["meeting"]
+    return jsonsafe([
+        {"session": s["session_name"], "type": s.get("session_type"),
+         "session_key": s["session_key"], "start": s["date_start"],
+         "end": s["date_end"]}
+        for s in sorted(openf1.get("sessions", meeting_key=meeting["meeting_key"]),
+                        key=lambda s: s["date_start"])])

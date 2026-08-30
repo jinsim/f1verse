@@ -16,6 +16,11 @@ publishing pipeline can gate on:
   lead changes but not overtakes.
 - **stints_vs_pits** — stint splits explained by pit stops (red-flag tyre
   changes legitimately add stints without a pit stop; reported, not failed).
+
+A check whose independent source is unavailable for a session — sprints
+have no ``/overtakes`` feed — is returned as ``skipped``. It does not fail
+publication, but it is listed, because "nothing disagreed" and "nothing
+was compared" must not look the same.
 """
 
 from .sources import openf1
@@ -24,6 +29,12 @@ from .sources import openf1
 def _check(name, ok, detail):
     return {"name": name, "status": "ok" if ok else "mismatch",
             "detail": detail}
+
+
+def _skip(name, detail):
+    """A check that could not run. Not a pass, and not a failure —
+    an unavailable independent source must not read as agreement."""
+    return {"name": name, "status": "skipped", "detail": detail}
 
 
 def crosscheck(race) -> dict:
@@ -71,10 +82,17 @@ def crosscheck(race) -> dict:
 
     # -- leader_vs_overtakes (independent endpoint) -------------------------
     runs = [r["abbr"] for r in race.leader_runs()]
-    ot = sorted(openf1.get("overtakes", session_key=race.session_key,
-                           position=1), key=lambda o: o["date"])
+    try:
+        ot = sorted(openf1.get("overtakes", session_key=race.session_key,
+                               position=1), key=lambda o: o["date"])
+    except Exception as e:
+        # /overtakes is not published for every session (sprints, older
+        # rounds). Skip rather than invent agreement.
+        ot = None
+        checks.append(_skip("leader_vs_overtakes",
+                            f"/overtakes unavailable for this session ({e})"))
     seq, prev_n = [], None
-    for o in ot:
+    for o in (ot or ()):
         n = o["overtaking_driver_number"]
         if n != prev_n:
             seq.append(race.abbr(n))
@@ -83,12 +101,13 @@ def crosscheck(race) -> dict:
     # pit-cycle lead changes legitimately have no matching overtake
     changes = [b for a, b in zip([None] + runs, runs) if a != b][1:]
     passes = [b for a, b in zip([None] + seq, seq) if a != b]
-    it = iter(changes)
-    ok = all(any(p == c for c in it) for p in passes)
-    checks.append(_check(
-        "leader_vs_overtakes", ok,
-        f"on-track P1 passes {passes} ⊆ lead changes {changes}"
-        + ("" if ok else " — FAILED")))
+    if ot is not None:
+        it = iter(changes)
+        ok = all(any(p == c for c in it) for p in passes)
+        checks.append(_check(
+            "leader_vs_overtakes", ok,
+            f"on-track P1 passes {passes} ⊆ lead changes {changes}"
+            + ("" if ok else " — FAILED")))
 
     # -- stints_vs_pits (informational) -------------------------------------
     pit_per = {}
@@ -104,6 +123,7 @@ def crosscheck(race) -> dict:
     checks.append(_check("stints_vs_pits", not unexplained,
                          f"suspicious stint splits: {unexplained or 'none'}"))
 
-    mismatches = [c["name"] for c in checks if c["status"] != "ok"]
-    return {"checks": checks, "mismatches": mismatches,
+    mismatches = [c["name"] for c in checks if c["status"] == "mismatch"]
+    skipped = [c["name"] for c in checks if c["status"] == "skipped"]
+    return {"checks": checks, "mismatches": mismatches, "skipped": skipped,
             "publishable": not mismatches}

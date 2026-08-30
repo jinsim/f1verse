@@ -26,6 +26,65 @@ race.championship_prediction()   # per-lap "if it ended now" title projection
 race.team_radio()                # timestamped clip URLs (nothing downloaded)
 ```
 
+### The whole weekend, not just the race
+
+```python
+f1verse.sessions(2026, 12)
+# Practice 1 · Sprint Qualifying · Sprint · Qualifying · Race
+
+q = f1verse.load_session(2026, 12, "Qualifying")
+q.results()[0]
+# {'abbr': 'NOR', 'q1': 72.695, 'q1_gap': 0.085, 'q3': 71.163, 'q3_gap': 0.0,
+#  'best': 71.163, 'eliminated_in': None, ...}
+
+q.segments()["q1"]
+# {'fastest': 'PIA', 'advanced': [...16 codes...], 'eliminated': [...],
+#  'cut_margin': 0.022}
+```
+
+Each kind gets the classification it actually has. Qualifying gaps are to
+the fastest lap **of that segment** — the pole-sitter above was 0.085 s
+off in Q1 — because a single "gap to leader" column would misreport the
+session. A sprint loads as a `Race`; practice is a best-lap table.
+
+### Is this data safe to publish?
+
+```python
+race.quality_report()
+# {'state': 'final',            # provisional → settled → final, or corrected
+#  'coverage': {'overall': 0.9955, 'sectors': 0.9824, 'compound': 1.0},
+#  'missing': ['STR.lap_46.lap_duration', ...],
+#  'source_age_seconds': 312,
+#  'revisions': [],             # source rewrites this install has observed
+#  'crosscheck': {...},
+#  'publishable': True}
+```
+
+`crosscheck` answers *do independent sources agree*. `quality_report` adds
+the three things that verdict is silent about: how complete the data is,
+how old the copy is, and whether the classification is still provisional.
+
+The chequered flag is not the final classification — scrutineering
+disqualifications and penalties land hours later and **rewrite rows in
+place**. So the rows the stewards can change are not cached forever until
+the session is final, and any change that is seen is recorded:
+
+```python
+before = race.snapshot()          # hashed, comparable, JSON — you persist it
+...
+f1verse.diff(before, race.refresh().snapshot())
+# {'changed': True,
+#  'changes': [{'abbr': 'HAM', 'field': 'position', 'before': 4, 'after': None},
+#              {'abbr': 'HAM', 'field': 'gap', 'before': '+8.1s', 'after': 'DSQ'}]}
+
+f1verse.revisions()               # every source rewrite observed, with the
+f1verse.vintage(rec)              # superseded body when it was small enough
+```
+
+There is deliberately no `as_of=` time travel: f1verse can tell you what
+it sees now and when it saw a value change, not reconstruct a value
+nobody here ever fetched.
+
 ### Beyond a single race
 
 ```python
@@ -58,11 +117,12 @@ f1verse.due(2026, processed=[...session keys you already handled...])
 # nothing published twice, nothing missed after downtime
 ```
 
-Caching is policy-driven, not blanket: completed-session data is immutable
-and cached forever, while schedules expire every few hours — a calendar
-cached for a season would hide a cancelled round for the rest of the year.
+Caching is policy-driven, not blanket: lap and telemetry data is immutable
+and cached forever, schedules expire every few hours — a calendar cached
+for a season would hide a cancelled round for the rest of the year — and
+rows the stewards can still rewrite expire until the session is final.
 `f1verse.cache_info()` and `f1verse.clear_cache(older_than=...)` are there
-for operators.
+for operators; `clear_cache` never drops the revision journal.
 
 ### Telemetry, track position, conditions
 
@@ -136,7 +196,10 @@ Raw timing data needs a lot of domain knowledge before it means anything:
 - **Web and video pipelines need plain JSON.** Every f1verse output is
   JSON-safe Python, ready to serialise.
 - **Data quality should be checkable in code**, not read from logs.
-  → `crosscheck` and `integrity_report` return structured verdicts.
+  → `crosscheck` and `quality_report` return structured verdicts.
+- **Results change after the flag.** A cache that treats a classification
+  as immutable makes a stewards' decision invisible.
+  → revisable rows expire until the session is final; changes are recorded.
 
 ## Additional live-timing feeds
 
@@ -195,7 +258,8 @@ the exact hosts and `LICENSE` notes where attribution applies.
 ## Roadmap
 
 - Broader cross-validation coverage
-- Additional session types (qualifying, sprint)
+- Comparison primitives (lap vs lap, stint vs stint) with sample counts
+- Deviation detection: expected range, actual, evidence
 - Localisation packages
 
 

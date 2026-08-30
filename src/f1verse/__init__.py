@@ -5,6 +5,8 @@
 >>> race.laps_led()              # {'ANT': 32, 'NOR': 31, 'HAM': 9}
 >>> race.story()                 # whole race as JSON-safe dict
 >>> race.crosscheck()            # validate before publishing
+>>> race.quality_report()        # completeness, age, corrections, verdict
+>>> f1verse.load_session(2026, 12, "Qualifying").segments()
 
 Seasons 2023 onward. Historic records, circuits and careers reach back
 to 1950.
@@ -18,7 +20,9 @@ from .circuit import profile as circuit_profile
 from .crosscheck import crosscheck
 from .fia import documents as fia_documents, power_unit_documents
 from .history import career, circuit_history, milestones, standings
-from .race import Race, load
+from .session import SCHEMA_VERSION, Practice, Qualifying, Session
+from .race import Race, load, load_session, sessions
+from .quality import diff, quality_report, snapshot
 from .schedule import due, season, status
 from .telemetry import lap_telemetry, lap_trace, top_speeds
 from .weather import readings as weather_readings, summary as weather_summary
@@ -31,8 +35,13 @@ from .teammates import head_to_head
 enable_cache = http.enable_cache
 cache_info = http.cache_info
 clear_cache = http.clear_cache
-__all__ = ["load", "Race", "format_gap", "jsonsafe", "enable_cache",
-           "cache_info", "clear_cache", "season", "status", "due",
+revisions = http.revisions
+vintage = http.vintage
+__all__ = ["load", "load_session", "sessions", "Race", "Session",
+           "Qualifying", "Practice", "format_gap", "jsonsafe", "enable_cache",
+           "cache_info", "clear_cache", "revisions", "vintage",
+           "quality_report", "snapshot", "diff", "SCHEMA_VERSION",
+           "season", "status", "due",
            "championship_prediction", "team_radio", "timing_stats",
            "crosscheck", "career", "milestones", "circuit_history", "standings",
            "circuit_profile", "head_to_head", "win_probabilities",

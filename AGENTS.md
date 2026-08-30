@@ -15,13 +15,15 @@ of public data sources.
 
 | File | Responsibility | Key entry points |
 |---|---|---|
-| `http.py` | cached HTTP, TTL policy, BOM-safe, 0.5s pacing, 429/5xx backoff, stale-on-error | `get_json`, `enable_cache`, `cache_info`, `clear_cache` |
-| `schedule.py` | season calendar, settle window, what is due to run | `season`, `status`, `due` |
+| `http.py` | cached HTTP, TTL policy, BOM-safe, 0.5s pacing, 429/5xx backoff, stale-on-error, revision journal | `get_json`, `enable_cache`, `cache_info`, `clear_cache`, `revisions`, `vintage`, `entry_meta` |
+| `schedule.py` | season calendar, settle window, session lifecycle, what is due to run | `season`, `status`, `due`, `lifecycle` |
 | `sources/openf1.py` | race data REST client (2023+) | `get`, `resolve_race` |
 | `sources/livetiming.py` | official archive: session paths + `.jsonStream` | `api_path`, `fetch_stream`, `deepmerge` |
 | `sources/jolpica.py` | historic results, 1950→now | `get`, `paged` |
 | `sources/multiviewer.py` | circuit geometry | `circuit` |
-| `race.py` | **native `Race` object** — the main entry | `load(year, round)`, `Race.story()` |
+| `session.py` | **`Session` base** — any session of a weekend; per-kind classification | `Session`, `Qualifying`, `Practice` |
+| `race.py` | **native `Race` object** — the main entry | `load(year, round)`, `load_session`, `sessions`, `Race.story()` |
+| `quality.py` | completeness, source age, lifecycle, corrections | `quality_report`, `snapshot`, `diff` |
 | `gaps.py` | broadcast gap convention | `format_gap` |
 | `crosscheck.py` | publish gating across independent sources | `crosscheck(race)` |
 | `history.py` | careers, milestones, circuit records, standings | `career`, `milestones`, `circuit_history`, `standings` |
@@ -48,15 +50,29 @@ of public data sources.
 4. **Domain rules are defaults, not options.** Pace excludes pit/SC/VSC
    laps; lapped cars show `+1 LAP`; undercut detection excludes neutralised
    laps. Do not make correctness opt-in.
-5. **Cache by mutability, never blanket.** Completed-session data is
+5. **Cache by mutability, never blanket.** Lap and telemetry data is
    immutable (`TTL_FOREVER`); schedules and standings must expire
    (`TTL_SCHEDULE` 6h, `TTL_STANDINGS` 1h). A permanently cached calendar
    hides cancelled rounds for a whole season. New endpoints must declare
    which they are.
-6. **Numbers carry their evidence.** `win_probabilities` returns the base
+6. **A classification is not immutable until it is final.** Endpoints in
+   `openf1.REVISABLE` (`session_result`, `race_control`, `starting_grid`,
+   `stints`, `pit`) are cached only `TTL_PROVISIONAL` until
+   `schedule.FINAL_HOURS` past the session end. Caching them forever makes
+   a disqualification invisible for the life of the cache — the failure is
+   silent and lands in published output. Any endpoint a steward can rewrite
+   goes in that set.
+7. **An unavailable check is not a passing check.** `crosscheck` returns
+   `skipped` when its independent source does not exist for a session
+   (sprints have no `/overtakes`). Never let "nothing was compared" and
+   "nothing disagreed" produce the same verdict.
+8. **Every change to a cached body is journalled.** `http` writes the
+   superseded copy and a record to `_revisions.jsonl`; `clear_cache` must
+   never delete it. It is the evidence a correction notice is written from.
+9. **Numbers carry their evidence.** `win_probabilities` returns the base
    rate window, sample size and per-driver reasoning. Keep that contract
    for any new estimate.
-7. **Models never calculate race facts.** Narration receives preformatted
+10. **Models never calculate race facts.** Narration receives preformatted
    structured facts. Every generated draft must pass the numeric and driver
    code whitelist; only verified exact matches may enter the local cache.
 
@@ -75,7 +91,17 @@ of public data sources.
 - `pitLoss` is a dict split by track state
   (`normal` / `sc` / `vsc`), not a scalar.
 - Timing data is not final at the chequered flag; `schedule.SETTLE_MINUTES`
-  (45) is the wait before a race is safe to publish.
+  (45) is the wait before a race is safe to publish, and
+  `schedule.FINAL_HOURS` (72) is when the classification stops being
+  treated as revisable. Appeals run longer than that — `Race.refresh()`
+  is the escape hatch, and it journals whatever it finds.
+- **Qualifying `gap_to_leader` is per segment, not to pole.** Both
+  `duration` and `gap_to_leader` come back as three-element lists, one per
+  segment, each relative to that segment's fastest lap. `None` in slot *i*
+  means the driver was knocked out before it. A race-shaped formatter
+  crashes on the list; a naive one reports the pole-sitter as 0.085 s off
+  their own pole time.
+- `/overtakes` is not published for sprints — 404, not an empty list.
 - `/sessions` rows carry no meeting name — join from `/meetings`.
 - Range parameters are `name>=value`, not `name=value`; `urlencode` mangles
   them into a 404. `http.get_text` builds those pairs by hand.
@@ -106,7 +132,13 @@ pytest -q
 `tests/` pins the library against a reference race, 2026 round 12, chosen
 because it exercises the awkward cases at once: a red flag, two VSC
 periods, six retirements, lapped finishers, and a winner who did **not**
-lead the most laps (31 vs the runner-up's 32). Expected values there were
+lead the most laps (31 vs the runner-up's 32). It is also a sprint
+weekend, so all five session kinds — and the missing `/overtakes` feed —
+are covered by the same fixture.
+
+`tests/test_quality.py` stages a real correction over `file://` URLs, so
+the revision journal is exercised offline rather than waiting for the
+stewards. Expected values there were
 checked by hand against the published classification — if a change breaks
 one, the change is wrong until proven otherwise.
 

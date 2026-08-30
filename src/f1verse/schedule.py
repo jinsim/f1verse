@@ -13,11 +13,41 @@ from datetime import datetime, timedelta, timezone
 from ._json import jsonsafe
 from .sources import openf1
 
+HOUR = 3600
 SETTLE_MINUTES = 45   # how long after a session ends before data is stable
+
+# The chequered flag ends the running, not the classification. Scrutineering
+# disqualifications, time penalties applied post-race and amended race-control
+# logs land hours later. Until this much time has passed, a result is treated
+# as revisable and its source rows are re-checked rather than cached forever.
+# Appeals can of course run for weeks; that is what ``Race.refresh()`` is for.
+FINAL_HOURS = 72
 
 
 def _dt(s: str) -> datetime:
     return datetime.fromisoformat(s)
+
+
+def lifecycle(end, *, now: datetime | None = None) -> str:
+    """Where a session sits on the provisional → final axis.
+
+    ``in_progress`` → ``provisional`` (finished, timing still moving) →
+    ``settled`` (safe to publish, still watched for corrections) →
+    ``final`` (treated as immutable). *end* is the session end time, as a
+    datetime or an ISO string.
+    """
+    now = now or datetime.now(timezone.utc)
+    end = _dt(end) if isinstance(end, str) else end
+    if end.tzinfo is None:
+        end = end.replace(tzinfo=timezone.utc)
+    age = (now - end).total_seconds()
+    if age < 0:
+        return "in_progress"
+    if age < SETTLE_MINUTES * 60:
+        return "provisional"
+    if age < FINAL_HOURS * HOUR:
+        return "settled"
+    return "final"
 
 
 def season(year: int, *, kind: str | None = None) -> list:
