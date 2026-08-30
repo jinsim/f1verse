@@ -100,3 +100,24 @@ def test_story_is_json_serialisable(race):
     """Web and video pipelines consume this directly — numpy scalars or
     timestamps leaking through would break them at the last step."""
     json.dumps(race.story())
+
+
+def test_weather_summary(race):
+    w = f1verse.weather_summary(race)
+    assert w["samples"] > 100
+    assert 20 < w["track_c"]["min"] < w["track_c"]["max"] < 60
+    assert w["air_c"]["min"] < w["track_c"]["min"]   # track runs hotter
+
+
+def test_lap_telemetry_is_bounded_and_plausible(race):
+    """A lap's telemetry must cover one lap, not the whole session."""
+    samples = f1verse.lap_telemetry(race, "NOR", 40)
+    assert 100 < len(samples) < 1000
+    assert 250 < max(s["speed"] for s in samples) < 400
+    assert max(s["gear"] for s in samples) <= 8
+
+
+def test_lap_trace_returns_coordinates(race):
+    trace = f1verse.lap_trace(race, "NOR", 40)
+    assert len(trace) > 100
+    assert all(p["x"] is not None and p["y"] is not None for p in trace)

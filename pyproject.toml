@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "f1verse"
-version = "0.7.0"
+version = "0.8.0"
 description = "The story layer for Formula 1 data — zero-dependency race narratives: lead changes, stints, race pace, live championship projection, team radio index."
 readme = "README.md"
 license = { text = "MIT" }

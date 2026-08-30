@@ -19,6 +19,8 @@ from .fia import documents as fia_documents, power_unit_documents
 from .history import career, circuit_history, milestones, standings
 from .race import Race, load
 from .schedule import due, season, status
+from .telemetry import lap_telemetry, lap_trace, top_speeds
+from .weather import readings as weather_readings, summary as weather_summary
 from .predict import grid_base_rates, recent_form, win_probabilities
 from .strategy import pit_exchanges
 from .teammates import head_to_head
@@ -33,4 +35,5 @@ __all__ = ["load", "Race", "format_gap", "jsonsafe", "enable_cache",
            "crosscheck", "career", "milestones", "circuit_history", "standings",
            "circuit_profile", "head_to_head", "win_probabilities",
            "grid_base_rates", "recent_form", "pit_exchanges",
-           "fia_documents", "power_unit_documents"]
+           "fia_documents", "power_unit_documents", "lap_telemetry",
+           "lap_trace", "top_speeds", "weather_readings", "weather_summary"]

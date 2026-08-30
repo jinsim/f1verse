@@ -29,6 +29,8 @@ of public data sources.
 | `teammates.py` | teammate head-to-head scores | `head_to_head(year)` |
 | `predict.py` | win probabilities from measured base rates | `win_probabilities`, `grid_base_rates` |
 | `strategy.py` | undercut/overcut verdicts | `pit_exchanges(race)` |
+| `telemetry.py` | car data and track position, per lap | `lap_telemetry`, `lap_trace`, `top_speeds` |
+| `weather.py` | session conditions | `readings`, `summary` |
 | `fia.py` | FIA decision-document index | `documents`, `power_unit_documents` |
 | `feeds.py` | additional live-timing feeds | `championship_prediction`, `team_radio`, `timing_stats` |
 | `_json.py` | everything public passes through here | `jsonsafe` |
@@ -71,6 +73,10 @@ of public data sources.
 - Timing data is not final at the chequered flag; `schedule.SETTLE_MINUTES`
   (45) is the wait before a race is safe to publish.
 - `/sessions` rows carry no meeting name — join from `/meetings`.
+- Range parameters are `name>=value`, not `name=value`; `urlencode` mangles
+  them into a 404. `http.get_text` builds those pairs by hand.
+- Telemetry endpoints return tens of thousands of rows per session —
+  always bound the window and filter server-side.
 - `.jsonStream` files are BOM-prefixed and send one snapshot
   followed by partial patches — merge with `deepmerge`.
 

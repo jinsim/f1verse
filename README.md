@@ -64,6 +64,22 @@ cached for a season would hide a cancelled round for the rest of the year.
 `f1verse.cache_info()` and `f1verse.clear_cache(older_than=...)` are there
 for operators.
 
+### Telemetry, track position, conditions
+
+```python
+f1verse.lap_telemetry(race, "NOR", 40)
+# per-sample speed, throttle, brake, gear, RPM and DRS state for one lap
+
+f1verse.lap_trace(race, "NOR", 40)      # x/y/z coordinates of that lap
+f1verse.top_speeds(race)                # fastest reading per driver
+
+f1verse.weather_summary(race)
+# {'track_c': {'min': 25.8, 'max': 38.2}, 'rain': True, 'samples': 191}
+```
+
+Telemetry is high-frequency, so these take a bounded window and filter
+server-side rather than downloading a session and trimming it locally.
+
 ### Predictions, pit-stop verdicts, official documents
 
 ```python

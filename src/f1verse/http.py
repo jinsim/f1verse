@@ -95,7 +95,18 @@ def _fetch(url: str) -> str:
 def get_text(url: str, params: dict | None = None,
              ttl: float | None = None) -> str:
     if params:
-        url = url + "?" + urllib.parse.urlencode(params)
+        # These APIs express ranges as ``date>=value``, where the operator
+        # sits between name and value rather than after an "=". urlencode
+        # would emit ``date>===value``, so such pairs are built by hand.
+        parts = []
+        for k, v in params.items():
+            if k.endswith((">=", "<=", ">", "<")):
+                op = k[-2:] if k.endswith(("=",)) and k[-2] in "><" else k[-1]
+                name = k[:-len(op)]
+                parts.append(f"{name}{op}{urllib.parse.quote(str(v), safe=':+.')}")
+            else:
+                parts.append(urllib.parse.urlencode({k: v}))
+        url = url + "?" + "&".join(parts)
     f = _cache_dir / hashlib.sha256(url.encode()).hexdigest()[:24]
     fresh = f.exists() and (ttl is None
                             or time.time() - f.stat().st_mtime < ttl)
