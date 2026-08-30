@@ -1,0 +1,36 @@
+"""f1verse — the story layer for Formula 1 data.
+
+>>> import f1verse
+>>> race = f1verse.load(2026, 12)
+>>> race.laps_led()              # {'ANT': 32, 'NOR': 31, 'HAM': 9}
+>>> race.story()                 # whole race as JSON-safe dict
+>>> race.crosscheck()            # validate before publishing
+
+Seasons 2023 onward. Historic records, circuits and careers reach back
+to 1950.
+"""
+from . import http
+from ._json import jsonsafe
+from .feeds import championship_prediction, team_radio, timing_stats
+from .gaps import format_gap
+from .circuit import profile as circuit_profile
+from .crosscheck import crosscheck
+from .fia import documents as fia_documents, power_unit_documents
+from .history import career, circuit_history, milestones, standings
+from .race import Race, load
+from .schedule import due, season, status
+from .predict import grid_base_rates, recent_form, win_probabilities
+from .strategy import pit_exchanges
+from .teammates import head_to_head
+
+__version__ = "0.6.0"
+enable_cache = http.enable_cache
+cache_info = http.cache_info
+clear_cache = http.clear_cache
+__all__ = ["load", "Race", "format_gap", "jsonsafe", "enable_cache",
+           "cache_info", "clear_cache", "season", "status", "due",
+           "championship_prediction", "team_radio", "timing_stats",
+           "crosscheck", "career", "milestones", "circuit_history", "standings",
+           "circuit_profile", "head_to_head", "win_probabilities",
+           "grid_base_rates", "recent_form", "pit_exchanges",
+           "fia_documents", "power_unit_documents"]

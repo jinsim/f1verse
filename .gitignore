@@ -1,0 +1,20 @@
+# build / packaging
+dist/
+build/
+*.egg-info/
+__pycache__/
+*.pyc
+.venv/
+
+# fetched data and caches — never committed
+cache/
+.cache/
+*.mp3
+*.pickle
+*.pkl
+
+# local working notes (not part of the library)
+notes/
+scratch/
+*.local.md
+.DS_Store
