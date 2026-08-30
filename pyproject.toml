@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "f1verse"
-version = "0.8.0"
+version = "0.9.0"
 description = "The story layer for Formula 1 data — zero-dependency race narratives: lead changes, stints, race pace, live championship projection, team radio index."
 readme = "README.md"
 license = { text = "MIT" }
@@ -27,7 +27,7 @@ dependencies = []
 test = ["pytest>=7"]
 
 [project.urls]
-Homepage = "https://github.com/f1verse/f1verse"
+Homepage = "https://github.com/jinsim/f1verse"
 
 [tool.setuptools.packages.find]
 where = ["src"]

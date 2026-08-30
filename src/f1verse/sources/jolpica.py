@@ -24,14 +24,26 @@ def get(path: str, limit: int = 100, offset: int = 0,
                          {"limit": limit, "offset": offset}, ttl)["MRData"]
 
 
-def paged(path: str, table: str, key: str, page: int = 100,
-          ttl: float | None = "auto") -> list:
-    """Follow Jolpica pagination until everything is collected."""
-    out, offset = [], 0
-    while True:
+def iter_paged(path: str, table: str, key: str, page: int = 100,
+               ttl: float | None = "auto", max_pages: int = 100):
+    """Yield rows lazily, with hard and no-progress pagination guards."""
+    offset = 0
+    for _ in range(max_pages):
         d = get(path, limit=page, offset=offset, ttl=ttl)
         rows = d[table][key]
-        out += rows
-        offset += page
-        if offset >= int(d["total"]) or not rows:
-            return out
+        if not rows:
+            return
+        yield from rows
+        next_offset = offset + len(rows)
+        if next_offset >= int(d["total"]):
+            return
+        if next_offset <= offset:
+            raise RuntimeError(f"pagination made no progress for {path}")
+        offset = next_offset
+    raise RuntimeError(f"pagination exceeded {max_pages} pages for {path}")
+
+
+def paged(path: str, table: str, key: str, page: int = 100,
+          ttl: float | None = "auto", max_pages: int = 100) -> list:
+    """Collect :func:`iter_paged` into a list."""
+    return list(iter_paged(path, table, key, page, ttl, max_pages))

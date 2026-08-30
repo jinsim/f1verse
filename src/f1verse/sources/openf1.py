@@ -20,6 +20,8 @@ def get(endpoint: str, ttl: float | None = "auto", **params) -> list:
 
 def resolve_race(year: int, rnd: int) -> dict:
     """(year, round) → race session dict. Rounds count real GP meetings only."""
+    if year < 2023:
+        raise ValueError("native race loading is available from the 2023 season")
     meetings = sorted(get("meetings", year=year), key=lambda m: m["date_start"])
     gps = [m for m in meetings
            if "test" not in m["meeting_name"].lower()

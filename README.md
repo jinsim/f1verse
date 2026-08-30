@@ -80,6 +80,26 @@ f1verse.weather_summary(race)
 Telemetry is high-frequency, so these take a bounded window and filter
 server-side rather than downloading a session and trimming it locally.
 
+### Grounded narration
+
+```python
+facts = f1verse.race_facts(race)       # all numbers computed and formatted here
+f1verse.brief(race)                    # deterministic text, no model required
+
+result = f1verse.narrate(
+    race,
+    generate=lambda prompt: my_model(prompt),
+    cache_dir=".cache/narration",
+)
+# {'text': '...', 'source': 'generated' | 'cache' | 'template', ...}
+```
+
+`narrate` accepts any text-generation callback; f1verse has no model SDK
+dependency. Drafts are checked against the structured fact sheet. Unknown
+numbers and driver codes are rejected, generation is retried at most twice,
+and a deterministic summary is returned if verification still fails. The
+optional cache is exact-match only and stores verified text.
+
 ### Predictions, pit-stop verdicts, official documents
 
 ```python

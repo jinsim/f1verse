@@ -5,6 +5,7 @@ These APIs express ranges as ``date>=value``. Passing that through
 answered with 404. This test pins the hand-built form.
 """
 import urllib.parse
+from datetime import datetime, timezone
 
 from f1verse import http
 
@@ -26,3 +27,13 @@ def test_range_operator_is_preserved(tmp_path, monkeypatch):
     assert "date>=2026-08-23T13:46:09" in decoded
     assert "date>==" not in seen["url"]      # the doubled-equals bug
     assert "session_key=1" in seen["url"]    # ordinary params still encoded
+
+
+def test_retry_after_supports_seconds_dates_and_caps(monkeypatch):
+    monkeypatch.setattr(http.time, "time", lambda: 1_000.0)
+    future = datetime.fromtimestamp(1_010.0, timezone.utc)
+    header = future.strftime("%a, %d %b %Y %H:%M:%S GMT")
+    assert http._retry_delay("3.5", 0) == 3.5
+    assert http._retry_delay("-5", 0) == 0
+    assert http._retry_delay("999", 0) == 120
+    assert http._retry_delay(header, 0) == 10

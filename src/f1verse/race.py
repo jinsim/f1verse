@@ -91,7 +91,7 @@ class Race:
         bands, red, start = [], [], None
         for m in sorted(self.race_control, key=lambda m: m["date"]):
             msg, lap = (m.get("message") or "").upper(), m.get("lap_number")
-            if "RED FLAG" in msg and lap:
+            if msg.startswith("RED FLAG") and lap:
                 red.append(int(lap))
             if ("SAFETY CAR DEPLOYED" in msg or "VSC DEPLOYED" in msg
                     or "VIRTUAL SAFETY CAR DEPLOYED" in msg):

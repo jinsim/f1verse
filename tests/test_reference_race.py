@@ -19,12 +19,6 @@ import f1verse
 YEAR, ROUND = 2026, 12
 
 
-@pytest.fixture(scope="module")
-def race(tmp_path_factory):
-    f1verse.enable_cache(str(tmp_path_factory.mktemp("cache")))
-    return f1verse.load(YEAR, ROUND)
-
-
 def test_event_identity(race):
     story = race.story()
     assert "Dutch" in story["event"]["name"]
@@ -70,7 +64,7 @@ def test_lapped_car_is_not_shown_ahead_of_a_slower_finisher(race):
 def test_interruptions(race):
     inter = race.interruptions()
     assert inter["sc_vsc_bands"] == [[55, 57], [70, 70]]
-    assert 2 in inter["red_flag_laps"]
+    assert inter["red_flag_laps"] == [2]
 
 
 def test_race_pace_excludes_neutralised_laps(race):

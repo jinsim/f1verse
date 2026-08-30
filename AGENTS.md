@@ -31,6 +31,7 @@ of public data sources.
 | `strategy.py` | undercut/overcut verdicts | `pit_exchanges(race)` |
 | `telemetry.py` | car data and track position, per lap | `lap_telemetry`, `lap_trace`, `top_speeds` |
 | `weather.py` | session conditions | `readings`, `summary` |
+| `narration.py` | structured fact sheet, deterministic brief, verified optional generation | `race_facts`, `brief`, `narrate`, `verify` |
 | `fia.py` | FIA decision-document index | `documents`, `power_unit_documents` |
 | `feeds.py` | additional live-timing feeds | `championship_prediction`, `team_radio`, `timing_stats` |
 | `_json.py` | everything public passes through here | `jsonsafe` |
@@ -55,6 +56,9 @@ of public data sources.
 6. **Numbers carry their evidence.** `win_probabilities` returns the base
    rate window, sample size and per-driver reasoning. Keep that contract
    for any new estimate.
+7. **Models never calculate race facts.** Narration receives preformatted
+   structured facts. Every generated draft must pass the numeric and driver
+   code whitelist; only verified exact matches may enter the local cache.
 
 ## Source behaviour worth knowing
 

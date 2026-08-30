@@ -18,13 +18,15 @@ rather than raising — a schedule from an hour ago beats no schedule.
 import gzip
 import hashlib
 import json
+import random
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 
-_UA = "f1verse (+https://github.com/jinsim/f1verse)"
+_UA = "f1verse/0.9.0 (+https://github.com/jinsim/f1verse)"
 _cache_dir = Path.home() / ".cache" / "f1verse"
 _last_request = 0.0
 
@@ -35,6 +37,23 @@ TTL_SCHEDULE = 6 * HOUR     # sessions, meetings — dates and cancellations mov
 TTL_STANDINGS = HOUR        # championship tables during a season
 TTL_LIVE = 60               # anything from a session in progress
 TTL_FOREVER = None          # completed-session data
+_MAX_RETRY_AFTER = 120.0
+
+
+def _retry_delay(value: str | None, attempt: int) -> float:
+    """Parse both Retry-After forms, with bounded exponential fallback."""
+    if value:
+        try:
+            delay = float(value)
+        except ValueError:
+            try:
+                delay = parsedate_to_datetime(value).timestamp() - time.time()
+            except (TypeError, ValueError, OverflowError):
+                delay = None
+        if delay is not None:
+            return min(max(delay, 0.0), _MAX_RETRY_AFTER)
+    base = min(2 ** attempt, 30)
+    return base + random.uniform(0, base * 0.25)
 
 
 def enable_cache(path) -> None:
@@ -84,10 +103,7 @@ def _fetch(url: str) -> str:
         except urllib.error.HTTPError as e:
             if e.code not in (429, 500, 502, 503, 504) or attempt == 5:
                 raise
-            retry_after = e.headers.get("Retry-After")
-            delay = (float(retry_after) if retry_after and retry_after.isdigit()
-                     else min(2 ** attempt, 30))
-            time.sleep(delay)
+            time.sleep(_retry_delay(e.headers.get("Retry-After"), attempt))
     _last_request = time.monotonic()
     return raw.decode("utf-8-sig")  # livetiming serves BOM-prefixed JSON
 
