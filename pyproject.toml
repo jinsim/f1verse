@@ -41,7 +41,7 @@ f1verse-mcp = "f1verse.mcp:main"
 
 [project.urls]
 Homepage = "https://github.com/jinsim/f1verse"
-Documentation = "https://github.com/jinsim/f1verse#readme"
+Documentation = "https://jinsim.github.io/f1verse/"
 Source = "https://github.com/jinsim/f1verse"
 Issues = "https://github.com/jinsim/f1verse/issues"
 Changelog = "https://github.com/jinsim/f1verse/releases"
