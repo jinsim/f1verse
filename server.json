@@ -14,7 +14,22 @@
       "registryBaseUrl": "https://pypi.org",
       "identifier": "f1verse",
       "version": "0.11.0",
-      "transport": { "type": "stdio" }
+      "transport": {
+        "type": "stdio"
+      },
+      "runtimeHint": "uvx",
+      "runtimeArguments": [
+        {
+          "type": "named",
+          "name": "--from",
+          "value": "f1verse"
+        },
+        {
+          "type": "positional",
+          "valueHint": "command",
+          "value": "f1verse-mcp"
+        }
+      ]
     }
   ]
 }
