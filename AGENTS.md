@@ -121,3 +121,4 @@ git tag v0.5.0 && git push --tags
 
 Requires a one-time pending publisher on pypi.org
 (project `f1verse`, owner `jinsim`, workflow `publish.yml`, env `pypi`).
+The complete checklist and failure gates are in **[RELEASING.md](RELEASING.md)**.

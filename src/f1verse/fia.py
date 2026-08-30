@@ -6,6 +6,8 @@ part" or "why was that penalty given" are told to go dig through fia.com.
 This module indexes those documents so a timeline event can link to its
 own evidence. Only URLs and titles are collected — no PDFs are mirrored.
 """
+from __future__ import annotations
+
 import html
 import re
 

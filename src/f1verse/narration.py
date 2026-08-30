@@ -15,6 +15,8 @@ Generation is optional. Nothing in f1verse requires a model: ``brief()``
 produces publishable text on its own, and is also the fallback whenever a
 generated draft fails verification.
 """
+from __future__ import annotations
+
 import json
 import hashlib
 import re

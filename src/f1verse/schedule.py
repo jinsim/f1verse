@@ -6,6 +6,8 @@ the next thing worth waking up for. Timing data is typically complete a
 short while after the chequered flag, so a pipeline that fires at the
 finish will publish half a race.
 """
+from __future__ import annotations
+
 from datetime import datetime, timedelta, timezone
 
 from ._json import jsonsafe

@@ -18,6 +18,8 @@ audit is worth nothing.
 Everything is returned with the evidence attached, so a caption can cite
 its own reasoning.
 """
+from __future__ import annotations
+
 from collections import Counter
 
 from ._json import jsonsafe

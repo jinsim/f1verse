@@ -1,4 +1,6 @@
 """Thin OpenF1 REST client (https://openf1.org) — coverage from 2023 season."""
+from __future__ import annotations
+
 from .. import http
 
 BASE = "https://api.openf1.org/v1/"

@@ -15,6 +15,8 @@ the year. Callers declare intent with ``ttl``:
 If a refresh fails but a stale entry exists, the stale copy is served
 rather than raising — a schedule from an hour ago beats no schedule.
 """
+from __future__ import annotations
+
 import gzip
 import hashlib
 import json

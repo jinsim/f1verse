@@ -4,6 +4,8 @@ Same car, same everything: the only clean controlled comparison in the
 sport, and the one people search for by name ("f1 teammates h2h").
 Qualifying and race are counted separately, as the community does.
 """
+from __future__ import annotations
+
 from ._json import jsonsafe
 from .sources import openf1
 

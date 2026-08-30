@@ -5,6 +5,8 @@ rival stays out, and emerges ahead. Whether it *worked* is a factual
 question about the gap before and after the exchange, and this module
 answers it with the circuit's real pit loss as the yardstick.
 """
+from __future__ import annotations
+
 from ._json import jsonsafe
 
 

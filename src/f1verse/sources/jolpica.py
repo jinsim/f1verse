@@ -5,6 +5,8 @@ carries the only complete open history of the championship. f1verse uses it
 for everything the live-timing feeds cannot know: careers, historic circuit
 records, standings.
 """
+from __future__ import annotations
+
 from .. import http
 
 BASE = "https://api.jolpi.ca/ergast/f1/"
