@@ -28,7 +28,9 @@ import urllib.request
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 
-_UA = "f1verse/0.9.0 (+https://github.com/jinsim/f1verse)"
+from ._version import __version__
+
+_UA = f"f1verse/{__version__} (+https://github.com/jinsim/f1verse)"
 _cache_dir = Path.home() / ".cache" / "f1verse"
 _last_request = 0.0
 

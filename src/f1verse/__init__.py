@@ -10,6 +10,7 @@ Seasons 2023 onward. Historic records, circuits and careers reach back
 to 1950.
 """
 from . import http
+from ._version import __version__
 from ._json import jsonsafe
 from .feeds import championship_prediction, team_radio, timing_stats
 from .gaps import format_gap
@@ -27,7 +28,6 @@ from .predict import grid_base_rates, recent_form, win_probabilities
 from .strategy import pit_exchanges
 from .teammates import head_to_head
 
-__version__ = "0.6.0"
 enable_cache = http.enable_cache
 cache_info = http.cache_info
 clear_cache = http.clear_cache

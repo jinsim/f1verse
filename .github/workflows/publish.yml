@@ -2,7 +2,7 @@
 # One-time setup on pypi.org: Account → Publishing → add pending publisher
 #   project: f1verse / owner: jinsim / repo: f1verse
 #   workflow: publish.yml / environment: pypi
-# Then publishing = pushing a version tag:  git tag v0.3.0 && git push --tags
+# Then publishing = pushing a version tag:  git tag v0.9.1 && git push --tags
 name: publish
 on:
   push:
@@ -28,8 +28,10 @@ jobs:
       - name: Verify tag matches package version
         run: |
           python - <<'PY'
-          import os, pathlib, tomllib
-          version = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"]
+          import os, pathlib
+          namespace = {}
+          exec(pathlib.Path("src/f1verse/_version.py").read_text(), namespace)
+          version = namespace["__version__"]
           tag = os.environ["GITHUB_REF_NAME"]
           if tag != f"v{version}":
               raise SystemExit(f"tag {tag!r} does not match package version v{version}")
