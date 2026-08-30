@@ -7,6 +7,7 @@
 >>> race.crosscheck()            # validate before publishing
 >>> race.quality_report()        # completeness, age, corrections, verdict
 >>> f1verse.load_session(2026, 12, "Qualifying").segments()
+>>> f1verse.tools()              # JSON tool schemas for an LLM/agent
 
 Seasons 2023 onward. Historic records, circuits and careers reach back
 to 1950.
@@ -31,6 +32,7 @@ from .narration import (brief, narrate, prompt as narration_prompt,
 from .predict import grid_base_rates, recent_form, win_probabilities
 from .strategy import pit_exchanges
 from .teammates import head_to_head
+from ._tools import catalog as tools, call as call_tool
 
 enable_cache = http.enable_cache
 cache_info = http.cache_info
@@ -49,4 +51,4 @@ __all__ = ["load", "load_session", "sessions", "Race", "Session",
            "fia_documents", "power_unit_documents", "lap_telemetry",
            "lap_trace", "top_speeds", "weather_readings", "weather_summary",
            "race_facts", "brief", "narrate", "narration_prompt", "verify",
-           "unsupported_numbers"]
+           "unsupported_numbers", "tools", "call_tool"]

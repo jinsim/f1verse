@@ -1,5 +1,11 @@
 # f1verse
 
+[![PyPI](https://img.shields.io/pypi/v/f1verse.svg)](https://pypi.org/project/f1verse/)
+[![Python](https://img.shields.io/pypi/pyversions/f1verse.svg)](https://pypi.org/project/f1verse/)
+[![Tests](https://github.com/jinsim/f1verse/actions/workflows/test.yml/badge.svg)](https://github.com/jinsim/f1verse/actions/workflows/test.yml)
+[![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)](https://github.com/jinsim/f1verse/blob/main/pyproject.toml)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 **The story layer for Formula 1 data.** Data libraries fetch and tidy —
 f1verse tells you *what happened*: lead changes, laps led, event timelines,
 stint strategy, race pace, and a live championship projection.
@@ -24,6 +30,37 @@ race.story()         # one call, whole story, plain JSON
 
 race.championship_prediction()   # per-lap "if it ended now" title projection
 race.team_radio()                # timestamped clip URLs (nothing downloaded)
+```
+
+### Give it to an AI agent
+
+f1verse ships its own MCP server. No install step, no dependencies:
+
+```json
+{"mcpServers": {"f1verse": {"command": "uvx", "args": ["f1verse-mcp"]}}}
+```
+
+That is the whole setup — the server is standard library only, so it
+starts and answers `tools/list` in about 140 ms instead of unpacking a
+scientific stack into a throwaway environment first. Eight tools, not
+eighty: a model picks the right one.
+
+For any other LLM pipeline, the library describes itself:
+
+```python
+f1verse.tools()                  # MCP-dialect JSON schemas
+f1verse.tools("openai")          # function-calling dialect
+f1verse.call_tool("f1_race_story", {"year": 2026, "round": 12})
+```
+
+Errors are written for the caller that has to fix them without reading
+this page:
+
+```python
+f1verse.call_tool("f1_race_summary", {})
+# LookupError: unknown tool 'f1_race_summary' — available: f1_race_story, ...
+f1verse.load_session(2026, 12, "Qualy")
+# LookupError: ... listing the sessions that weekend actually had
 ```
 
 ### The whole weekend, not just the race

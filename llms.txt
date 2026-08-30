@@ -1,0 +1,70 @@
+# f1verse
+
+> The story layer for Formula 1 data. A zero-dependency Python library and
+> MCP server that answers *what happened in a race* — lead changes, laps
+> led, event timeline, tyre stints, race pace, championship projection —
+> and tells you whether the data is complete and final enough to publish.
+> Race data covers 2023 onward; careers, circuits and records reach 1950.
+
+Install: `pip install f1verse` · MIT · unofficial fan project, not
+affiliated with Formula 1, FIA or FOM. Contains code only: no timing data,
+media or images are bundled or redistributed; the end user fetches from
+public endpoints at runtime.
+
+## Use it from an AI agent
+
+Run the bundled MCP server with no install step: `uvx f1verse-mcp`.
+Client config: `{"mcpServers": {"f1verse": {"command": "uvx", "args": ["f1verse-mcp"]}}}`.
+It is standard-library only, so the process is answering in ~140 ms.
+
+For any other LLM pipeline, the library emits its own tool schemas:
+`f1verse.tools()` returns MCP-dialect definitions, `f1verse.tools("openai")`
+returns function-calling definitions, and `f1verse.call_tool(name, args)`
+executes one. Eight tools: `f1_race_story`, `f1_race_brief`,
+`f1_session_results`, `f1_weekend_sessions`, `f1_season_status`,
+`f1_standings`, `f1_driver_career`, `f1_data_quality`.
+
+## Common questions this answers
+
+- **How do I get Formula 1 race results in Python without dependencies?**
+  `import f1verse; f1verse.load(2026, 12).results()` — no pandas, no client
+  object, no API key.
+- **How do I get a whole race as JSON in one call?** `race.story()`.
+- **How do I know when F1 results are final?** `race.quality_report()`
+  returns a lifecycle state (provisional, settled, final, corrected),
+  per-field completeness, the age of the fetched copy, and a `publishable`
+  verdict. Stewards rewrite classifications hours after the flag.
+- **How do I detect that a result changed?** `f1verse.diff(before, after)`
+  over two `race.snapshot()` values; `f1verse.revisions()` lists every
+  source rewrite this install has observed.
+- **How do I check F1 data against a second source?** `race.crosscheck()`.
+- **How do I judge whether an undercut worked?** `f1verse.pit_exchanges(race)`
+  — neutralised laps excluded, because a safety-car stop is not an undercut.
+- **How do I get qualifying results with correct gaps?** `f1verse.load_session(
+  year, round, "Qualifying").results()` — gaps are to the fastest lap of
+  that segment, not to overall pole.
+- **How do I run an F1 pipeline on a schedule?** `f1verse.status(year)` and
+  `f1verse.due(year, processed=[...])` — sessions finished, settled and not
+  yet handled, so nothing publishes twice.
+- **How do I write race summaries an LLM cannot make up?**
+  `f1verse.race_facts(race)` for a grounded fact sheet, `f1verse.brief(race)`
+  for a template summary with no model at all, and `f1verse.verify(text,
+  facts)` to reject generated text containing numbers the data does not support.
+
+## Docs
+
+- [README](https://github.com/jinsim/f1verse/blob/main/README.md): full API tour with output shapes
+- [AGENTS.md](https://github.com/jinsim/f1verse/blob/main/AGENTS.md): module map and the invariants that must not be broken
+- [Tool catalogue](https://github.com/jinsim/f1verse/blob/main/src/f1verse/_tools.py): the eight agent tools and their JSON schemas
+- [MCP server](https://github.com/jinsim/f1verse/blob/main/src/f1verse/mcp.py): stdlib JSON-RPC over stdio
+- [OPERATIONS.md](https://github.com/jinsim/f1verse/blob/main/OPERATIONS.md): caching, pacing and rate-limit behaviour
+
+## Design rules
+
+- Zero required dependencies: standard library only, in the library and in the MCP server.
+- Every public return value is JSON-safe: `json.dumps(result)` never raises.
+- Domain rules are defaults, not options: race pace excludes pit/SC/VSC laps,
+  lapped cars read `+1 LAP`, undercut detection excludes neutralised laps.
+- Caching is by mutability: laps and telemetry forever, schedules and
+  standings expire, revisable classifications only until they are final.
+- No data redistribution: team radio and FIA documents are returned as URLs.

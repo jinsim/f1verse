@@ -37,6 +37,8 @@ of public data sources.
 | `fia.py` | FIA decision-document index | `documents`, `power_unit_documents` |
 | `feeds.py` | additional live-timing feeds | `championship_prediction`, `team_radio`, `timing_stats` |
 | `_json.py` | everything public passes through here | `jsonsafe` |
+| `_tools.py` | agent tool catalogue — one source for schemas and dispatch | `catalog`, `call` (exported as `tools`, `call_tool`) |
+| `mcp.py` | MCP server: stdlib JSON-RPC 2.0 over stdio, `f1verse-mcp` | `handle`, `serve`, `main` |
 
 ## Invariants — do not break these
 
@@ -75,6 +77,15 @@ of public data sources.
 10. **Models never calculate race facts.** Narration receives preformatted
    structured facts. Every generated draft must pass the numeric and driver
    code whitelist; only verified exact matches may enter the local cache.
+11. **One catalogue, one dispatcher.** `_tools.py` is the only definition of
+   the agent surface: the MCP server calls it and so does `f1verse.tools()`.
+   Never hand-write a second tool list — schemas and behaviour cannot be
+   allowed to drift. A new tool needs a `_SPECS` entry *and* a `_HANDLERS`
+   entry; `tests/test_tools.py` enforces that they match.
+12. **Errors are read by machines.** A wrong tool name lists the real names,
+   a missing argument names it, an unknown session lists the sessions that
+   weekend had. An agent recovers from the message or not at all — never
+   raise a bare `KeyError` from a public entry point.
 
 ## Source behaviour worth knowing
 
