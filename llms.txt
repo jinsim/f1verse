@@ -13,8 +13,8 @@ public endpoints at runtime.
 
 ## Use it from an AI agent
 
-Run the bundled MCP server with no install step: `uvx f1verse-mcp`.
-Client config: `{"mcpServers": {"f1verse": {"command": "uvx", "args": ["f1verse-mcp"]}}}`.
+Run the bundled MCP server with no install step: `uvx --from f1verse f1verse-mcp`.
+Client config: `{"mcpServers": {"f1verse": {"command": "uvx", "args": ["--from", "f1verse", "f1verse-mcp"]}}}`.
 It is standard-library only, so the process is answering in ~140 ms.
 
 For any other LLM pipeline, the library emits its own tool schemas:

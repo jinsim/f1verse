@@ -6,6 +6,11 @@
 [![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)](https://github.com/jinsim/f1verse/blob/main/pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+**[Documentation](https://jinsim.github.io/f1verse/)** ·
+[MCP server](https://jinsim.github.io/f1verse/f1-mcp-server/) ·
+[llms.txt](https://jinsim.github.io/f1verse/llms.txt) ·
+[Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md)
+
 **The story layer for Formula 1 data.** Data libraries fetch and tidy —
 f1verse tells you *what happened*: lead changes, laps led, event timelines,
 stint strategy, race pace, and a live championship projection.
@@ -37,7 +42,7 @@ race.team_radio()                # timestamped clip URLs (nothing downloaded)
 f1verse ships its own MCP server. No install step, no dependencies:
 
 ```json
-{"mcpServers": {"f1verse": {"command": "uvx", "args": ["f1verse-mcp"]}}}
+{"mcpServers": {"f1verse": {"command": "uvx", "args": ["--from", "f1verse", "f1verse-mcp"]}}}
 ```
 
 That is the whole setup — the server is standard library only, so it

@@ -2,11 +2,11 @@
 
 Run it with no install step and no dependencies::
 
-    uvx f1verse-mcp
+    uvx --from f1verse f1verse-mcp
 
 and point a client at it::
 
-    {"mcpServers": {"f1verse": {"command": "uvx", "args": ["f1verse-mcp"]}}}
+    {"mcpServers": {"f1verse": {"command": "uvx", "args": ["--from", "f1verse", "f1verse-mcp"]}}}
 
 The transport is newline-delimited JSON-RPC 2.0 over stdio, implemented
 here in the standard library — the same zero-dependency rule as the rest
