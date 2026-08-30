@@ -19,6 +19,18 @@ from .sources import openf1
 # not open; 10, 12 and 14 indicate an activated rear wing.
 _DRS_OPEN = {10, 12, 14}
 
+# Mini-sector status codes, as carried in the timing feed's per-sector
+# ``Segments`` entries. Nothing official documents these; the meanings are
+# observable from how they track the on-screen colouring.
+SEGMENT_STATUS = {
+    0: "not yet run",
+    2048: "set",               # completed, nothing special
+    2049: "personal best",
+    2051: "session best",
+    2052: "set",
+    2064: "pit in/out lap",
+}
+
 
 def _window(race, driver_number: int, lap: int):
     """Start/end timestamps for one lap, as ISO strings."""

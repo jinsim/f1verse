@@ -257,6 +257,87 @@ PAGES = [
         ],
         related=["f1-mcp-server", "f1-race-json-one-call"],
     ),
+    Page(
+        "f1-tyre-degradation",
+        "Measure F1 tyre degradation in Python",
+        "How do I measure F1 tyre degradation from race data?",
+        "Call <code>f1verse.stint_degradation(race)</code>. It returns seconds "
+        "lost per lap for each stint, computed on fuel-normalised clean laps "
+        "only, and reports how many laps each rate stands on.",
+        '>>> f1verse.stint_degradation(race)[3]\n'
+        "{'driver': 'NOR', 'stint': 2, 'compound': 'HARD', 'tyre_age_at_start': 0,\n"
+        " 'clean_laps_used': 18, 'degradation_s_per_lap': 0.041}\n"
+        '>>> f1verse.circuit_abrasion(race)\n'
+        "{'factor': 1.4, 'verdict': 'abrasive', 'samples': 55}",
+        notes=[
+            "A car gets faster all race as it burns fuel, so raw lap times "
+            "understate degradation on every stint. <code>fuel_normalised()</code> "
+            "removes that trend before any rate is fitted — without it, a "
+            "degradation number is mostly a fuel number.",
+            "Pit, safety-car and traffic laps are excluded, and a stint with too "
+            "few clean laps left returns "
+            "<code>{'degradation_s_per_lap': None, 'reason': 'too few clean "
+            "laps'}</code> rather than a rate fitted to noise. Every number "
+            "carries its sample count.",
+            "<code>f1verse.tyre_outlook(race)</code> projects the same rates "
+            "forward to the point where a stint falls off its cliff.",
+        ],
+        related=["f1-undercut-analysis", "f1-race-json-one-call", "f1-results-final"],
+    ),
+    Page(
+        "f1-deleted-lap-times",
+        "Find F1 lap times deleted by the stewards",
+        "How do I find F1 lap times that were deleted by the stewards?",
+        "Call <code>f1verse.lap_deletions(messages)</code>, or the "
+        "<code>f1_deleted_laps</code> tool. It returns every deletion race "
+        "control announced — car, time, reason — and whether the deletion still "
+        "stands after any reinstatement.",
+        '>>> f1verse.call_tool("f1_deleted_laps",\n'
+        '...     {"year": 2026, "round": 12, "session": "Qualifying"})["deletions"][0]\n'
+        "{'car_number': 55, 'lap_time': '1:25.773',\n"
+        "  'reason': 'TRACK LIMITS AT TURN 3 LAP 3', 'stands': True,\n"
+        "  'date': '2026-08-22T14:04:59+00:00'}",
+        notes=[
+            "A reinstated lap is reported with the reversal visible rather than "
+            "quietly dropped. The fact that a time was struck and then given "
+            "back is part of the record, not noise to clean up.",
+            "Check this before treating a fastest lap or a qualifying position "
+            "as settled — a deletion changes a classification without the "
+            "classification looking any different.",
+        ],
+        related=["f1-results-final", "f1-qualifying-gaps", "f1-detect-result-changes"],
+    ),
+    Page(
+        "f1-live-timing-python",
+        "Read the F1 live timing feed in Python",
+        "How do I read the Formula 1 live timing feed in Python?",
+        "Use <code>f1verse.sources.liveclient.LiveFeed</code>. It speaks the "
+        "official SignalR feed over a WebSocket implemented in the standard "
+        "library — no websocket package, no SignalR client, no browser.",
+        'from f1verse.sources import liveclient\n\n'
+        'with liveclient.LiveFeed() as feed:\n'
+        '    for topic, patch, stamp in feed.messages():\n'
+        '        ...\n\n'
+        'liveclient.run("session-{n}.jsonl")   # record, rotate, reconnect',
+        notes=[
+            "Connecting takes three undocumented courtesies: the load balancer "
+            "issues its affinity cookie only to a pre-flight request and rejects "
+            "sockets arriving without it, the service expects the official "
+            "application's user agent, and a subscription sent without an "
+            "invocation id is accepted silently and never answered. All three "
+            "are handled here so no caller has to rediscover them.",
+            "Recordings carry a millisecond arrival stamp per frame, which is "
+            "the difference between an archive and a screenshot — "
+            "<code>replay()</code> can then run a session at true speed. "
+            "Recordings are local working data; nothing is redistributed.",
+            "The raw stream is not a lap table. "
+            "<code>f1verse.sources.timing.laps_from_stream()</code> rebuilds "
+            "honest laps from it, because arrival order lies: sector times land "
+            "after the next lap has begun, and qualifying carries phantom lap "
+            "times that are really the gap between two runs.",
+        ],
+        related=["f1-schedule-pipeline", "f1-results-final", "f1-mcp-server"],
+    ),
 ]
 
 MCP_PAGE = Page(

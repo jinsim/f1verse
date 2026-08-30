@@ -15,22 +15,25 @@ of public data sources.
 
 | File | Responsibility | Key entry points |
 |---|---|---|
-| `http.py` | cached HTTP, TTL policy, BOM-safe, 0.5s pacing, 429/5xx backoff, stale-on-error, revision journal | `get_json`, `enable_cache`, `cache_info`, `clear_cache`, `revisions`, `vintage`, `entry_meta` |
+| `http.py` | cached HTTP, TTL policy, BOM-safe, 0.5s pacing, per-host hourly budgets, 429/5xx backoff, stale-on-error, revision journal | `get_json`, `enable_cache`, `cache_info`, `clear_cache`, `revisions`, `vintage`, `entry_meta` |
 | `schedule.py` | season calendar, settle window, session lifecycle, what is due to run | `season`, `status`, `due`, `lifecycle` |
 | `sources/openf1.py` | race data REST client (2023+) | `get`, `resolve_race` |
-| `sources/livetiming.py` | official archive: session paths + `.jsonStream` | `api_path`, `fetch_stream`, `deepmerge` |
+| `sources/livetiming.py` | official archive: session paths + `.jsonStream`, list-index patches, `.z` channels | `api_path`, `fetch_stream`, `deepmerge`, `unpack_z` |
+| `sources/timing.py` | lap tables rebuilt from the raw timing patch stream (grace window, credibility ceiling, blank-vs-unknown, earliest-witness lap ends) | `laps_from_stream` |
+| `sources/liveclient.py` | live SignalR feed over a stdlib WebSocket; stamped recorder and replay | `LiveFeed`, `decode`, `record`, `replay`, `run` |
+| `_clock.py` | wire-format clock/lap/wall-time parsing, every feed shape | `clock_seconds`, `lap_seconds`, `wall_time` |
 | `sources/jolpica.py` | historic results, 1950→now | `get`, `paged` |
 | `sources/multiviewer.py` | circuit geometry | `circuit` |
 | `session.py` | **`Session` base** — any session of a weekend; per-kind classification | `Session`, `Qualifying`, `Practice` |
 | `race.py` | **native `Race` object** — the main entry | `load(year, round)`, `load_session`, `sessions`, `Race.story()` |
-| `quality.py` | completeness, source age, lifecycle, corrections | `quality_report`, `snapshot`, `diff` |
-| `gaps.py` | broadcast gap convention | `format_gap` |
+| `quality.py` | completeness, source age, lifecycle, corrections, steward lap deletions | `quality_report`, `snapshot`, `diff`, `lap_deletions` |
+| `gaps.py` | broadcast gap convention; provenance-preserving gap series | `format_gap`, `reconcile` |
 | `crosscheck.py` | publish gating across independent sources | `crosscheck(race)` |
 | `history.py` | careers, milestones, circuit records, standings | `career`, `milestones`, `circuit_history`, `standings` |
 | `circuit.py` | geometry + history in one profile | `profile(year, round)` |
 | `teammates.py` | teammate head-to-head scores | `head_to_head(year)` |
-| `predict.py` | win probabilities from measured base rates | `win_probabilities`, `grid_base_rates` |
-| `strategy.py` | undercut/overcut verdicts | `pit_exchanges(race)` |
+| `predict.py` | win probabilities from measured base rates; seeded strategy rollouts | `win_probabilities`, `grid_base_rates`, `strategy_rollout` |
+| `strategy.py` | undercut/overcut verdicts; fuel-normalised tyre life and outlook | `pit_exchanges(race)`, `stint_degradation`, `circuit_abrasion`, `fuel_normalised`, `tyre_outlook` |
 | `telemetry.py` | car data and track position, per lap | `lap_telemetry`, `lap_trace`, `top_speeds` |
 | `weather.py` | session conditions | `readings`, `summary` |
 | `narration.py` | structured fact sheet, deterministic brief, verified optional generation | `race_facts`, `brief`, `narrate`, `verify` |

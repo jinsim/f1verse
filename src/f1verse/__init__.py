@@ -16,21 +16,23 @@ from . import http
 from ._version import __version__
 from ._json import jsonsafe
 from .feeds import championship_prediction, team_radio, timing_stats
-from .gaps import format_gap
+from .gaps import format_gap, reconcile as reconcile_gaps
 from .circuit import profile as circuit_profile
 from .crosscheck import crosscheck
 from .fia import documents as fia_documents, power_unit_documents
 from .history import career, circuit_history, milestones, standings
 from .session import SCHEMA_VERSION, Practice, Qualifying, Session
 from .race import Race, load, load_session, sessions
-from .quality import diff, quality_report, snapshot
+from .quality import diff, lap_deletions, quality_report, snapshot
 from .schedule import due, season, status
 from .telemetry import lap_telemetry, lap_trace, top_speeds
 from .weather import readings as weather_readings, summary as weather_summary
 from .narration import (brief, narrate, prompt as narration_prompt,
                         race_facts, unsupported_numbers, verify)
-from .predict import grid_base_rates, recent_form, win_probabilities
-from .strategy import pit_exchanges
+from .predict import (grid_base_rates, recent_form, strategy_rollout,
+                      win_probabilities)
+from .strategy import (circuit_abrasion, fuel_normalised, pit_exchanges,
+                       stint_degradation, tyre_outlook)
 from .teammates import head_to_head
 from ._tools import catalog as tools, call as call_tool
 
@@ -47,7 +49,10 @@ __all__ = ["load", "load_session", "sessions", "Race", "Session",
            "championship_prediction", "team_radio", "timing_stats",
            "crosscheck", "career", "milestones", "circuit_history", "standings",
            "circuit_profile", "head_to_head", "win_probabilities",
-           "grid_base_rates", "recent_form", "pit_exchanges",
+           "grid_base_rates", "recent_form", "strategy_rollout",
+           "pit_exchanges", "stint_degradation", "circuit_abrasion",
+           "tyre_outlook", "fuel_normalised", "lap_deletions",
+           "reconcile_gaps",
            "fia_documents", "power_unit_documents", "lap_telemetry",
            "lap_trace", "top_speeds", "weather_readings", "weather_summary",
            "race_facts", "brief", "narrate", "narration_prompt", "verify",

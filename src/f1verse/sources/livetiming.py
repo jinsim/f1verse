@@ -4,8 +4,10 @@ Session paths are discovered via the season ``Index.json``, so no
 third-party library is involved. Nothing is redistributed — clips stay as
 URLs.
 """
+import base64
 import json
 import re
+import zlib
 
 from .. import http
 
@@ -41,9 +43,36 @@ def fetch_stream(path: str, filename: str) -> list:
 
 
 def deepmerge(base, patch):
-    """Streams send one snapshot, then partial patches."""
+    """Streams send one snapshot, then partial patches.
+
+    One wrinkle matters for correctness: a patch aimed at a *list* arrives
+    as a dict whose keys are stringified indices — ``{"2": {...}}`` means
+    "merge into element 2". An index past the end appends. A patch whose
+    keys are not indices simply replaces the list, and two lists never
+    concatenate; the later one wins.
+    """
+    if isinstance(base, list) and isinstance(patch, dict):
+        for k, v in patch.items():
+            try:
+                i = int(k)
+            except (TypeError, ValueError):
+                return patch
+            if 0 <= i < len(base):
+                base[i] = deepmerge(base[i], v)
+            else:
+                base.append(deepmerge(None, v))
+        return base
     if not isinstance(base, dict) or not isinstance(patch, dict):
         return patch
     for k, v in patch.items():
         base[k] = deepmerge(base.get(k), v)
     return base
+
+
+def unpack_z(payload: str):
+    """The two ``.z`` channels (car data, position) wrap their JSON in
+    base64 over headerless DEFLATE — plain ``zlib.decompress`` refuses it
+    unless told not to expect a header."""
+    raw = zlib.decompress(base64.b64decode(payload.strip('"')),
+                          -zlib.MAX_WBITS)
+    return json.loads(raw.decode("utf-8"))

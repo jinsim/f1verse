@@ -109,3 +109,88 @@ def win_probabilities(grid: dict, *, year: int, upto_round: int,
                      "per_driver": detail,
                      "method": "grid base rate x circuit conversion x recent form,"
                                " normalised"})
+
+
+# --- strategy rollouts --------------------------------------------------
+
+def strategy_rollout(total_laps: int, base_pace_s: float, candidates: list,
+                     wear_s_per_lap: dict | None = None,
+                     pit_loss_s: float = 21.0,
+                     sc_chance_per_lap: float = 0.015,
+                     sc_pit_saving: float = 0.5,
+                     lap_noise_s: float = 0.25,
+                     runs: int = 2000, seed: int = 0) -> dict:
+    """Race one strategy against another a few thousand times.
+
+    Each candidate is ``{"name": ..., "stints": [{"compound": ...,
+    "until": lap}, ...]}`` — the last stint's ``until`` is the race
+    distance. Every run draws the same weather: per-lap noise, and safety
+    cars appearing with ``sc_chance_per_lap`` and hanging around for a
+    few laps, during which a stop costs ``sc_pit_saving`` of the normal
+    ``pit_loss_s`` — which is the entire reason a lucky strategy beats a
+    fast one, and why this is a simulation rather than a sum.
+
+    The result reports, per candidate, the median finishing time, an
+    80% band, and the share of runs it won — alongside every assumption
+    it was computed from, because a forecast without its assumptions is
+    an opinion. Same ``seed`` in, same numbers out.
+    """
+    import random as _random
+    wear = dict(_ORDINARY_ROLLOUT_WEAR)
+    wear.update(wear_s_per_lap or {})
+    rng = _random.Random(seed)
+    totals = {c["name"]: [] for c in candidates}
+    for _ in range(runs):
+        # one shared race: same safety cars, same lap noise for everyone
+        sc_laps = set()
+        lap = 1
+        while lap <= total_laps:
+            if rng.random() < sc_chance_per_lap:
+                sc_laps.update(range(lap, min(lap + rng.randint(2, 4),
+                                              total_laps) + 1))
+                lap += 5
+            lap += 1
+        noise = [rng.gauss(0, lap_noise_s) for _ in range(total_laps + 1)]
+        for c in candidates:
+            t, lap = 0.0, 1
+            for stint in c["stints"]:
+                rate = wear.get((stint.get("compound") or "").upper(), 0.03)
+                age = 0
+                while lap <= min(stint["until"], total_laps):
+                    t += base_pace_s + rate * age + noise[lap]
+                    if lap in sc_laps:
+                        t += 8.0          # running behind the safety car
+                    age += 1
+                    lap += 1
+                if lap <= total_laps:     # this stop actually happens
+                    t += pit_loss_s * (sc_pit_saving
+                                       if lap in sc_laps else 1.0)
+            totals[c["name"]].append(t)
+    order = sorted(totals)
+    wins = {name: 0 for name in order}
+    for i in range(runs):
+        best = min(order, key=lambda name: totals[name][i])
+        wins[best] += 1
+    out = []
+    for name in order:
+        times = sorted(totals[name])
+        out.append({"name": name,
+                    "median_s": round(times[runs // 2], 2),
+                    "p10_s": round(times[runs // 10], 2),
+                    "p90_s": round(times[(9 * runs) // 10], 2),
+                    "win_share": round(wins[name] / runs, 3)})
+    out.sort(key=lambda e: e["median_s"])
+    return jsonsafe({
+        "candidates": out,
+        "assumptions": {"total_laps": total_laps,
+                        "base_pace_s": base_pace_s,
+                        "wear_s_per_lap": wear, "pit_loss_s": pit_loss_s,
+                        "sc_chance_per_lap": sc_chance_per_lap,
+                        "sc_pit_saving": sc_pit_saving,
+                        "lap_noise_s": lap_noise_s,
+                        "runs": runs, "seed": seed},
+    })
+
+
+_ORDINARY_ROLLOUT_WEAR = {"SOFT": 0.05, "MEDIUM": 0.03, "HARD": 0.01,
+                          "INTERMEDIATE": 0.04, "WET": 0.02}

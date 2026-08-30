@@ -118,6 +118,30 @@ _SPECS = [
         "params": {"year": _YEAR, "round": _ROUND, "session": _SESSION},
         "required": ["year", "round"],
     },
+    {
+        "name": "f1_tyre_wear",
+        "summary": "How fast each set of tyres degraded, stint by stint.",
+        "description": (
+            "Per-stint degradation in seconds per lap, computed on "
+            "fuel-normalised clean laps only (pit, safety-car and traffic laps "
+            "excluded), plus a circuit abrasion verdict relative to an ordinary "
+            "surface. Every rate reports how many clean laps it stands on; "
+            "stints too short to judge say so instead of guessing."),
+        "params": {"year": _YEAR, "round": _ROUND},
+        "required": ["year", "round"],
+    },
+    {
+        "name": "f1_deleted_laps",
+        "summary": "Lap times the stewards struck out, with reinstatements.",
+        "description": (
+            "Every lap-time deletion race control announced in a session, with "
+            "the car, the time, the stated reason, and whether the deletion "
+            "still stands — a reinstated lap is reported with the reversal "
+            "visible rather than silently dropped. Use before treating a "
+            "fastest lap or a qualifying position as settled."),
+        "params": {"year": _YEAR, "round": _ROUND, "session": _SESSION},
+        "required": ["year", "round"],
+    },
 ]
 
 
@@ -165,6 +189,21 @@ def _quality(year, round, session="Race", **_):
     return load_session(year, round, session).quality_report()
 
 
+def _tyres(year, round, **_):
+    from .race import load
+    from .strategy import circuit_abrasion, stint_degradation
+    race = load(year, round)
+    return {"stints": stint_degradation(race),
+            "circuit_abrasion": circuit_abrasion(race)}
+
+
+def _deletions(year, round, session="Race", **_):
+    from .quality import lap_deletions
+    from .race import load_session
+    s = load_session(year, round, session)
+    return {"session": s.name, "deletions": lap_deletions(s.race_control)}
+
+
 _HANDLERS = {
     "f1_race_story": _story,
     "f1_race_brief": _brief,
@@ -174,6 +213,8 @@ _HANDLERS = {
     "f1_standings": _standings,
     "f1_driver_career": _career,
     "f1_data_quality": _quality,
+    "f1_tyre_wear": _tyres,
+    "f1_deleted_laps": _deletions,
 }
 
 NAMES = tuple(spec["name"] for spec in _SPECS)

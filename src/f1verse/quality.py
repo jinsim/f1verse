@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import datetime, timezone
 
 from ._json import jsonsafe
@@ -247,3 +248,51 @@ def diff(before: dict, after: dict) -> dict:
         "added": added,
         "removed": removed,
     })
+
+
+# --- deleted lap times -------------------------------------------------
+
+_TIME_DELETED = re.compile(
+    r"CAR (?P<car>\d{1,2}) .*?TIME (?P<time>\d+:\d{2}\.\d{3}) DELETED"
+    r"(?:\s*-\s*(?P<why>.*))?", re.I)
+_TIME_REINSTATED = re.compile(
+    r"CAR (?P<car>\d{1,2}) .*?TIME (?P<time>\d+:\d{2}\.\d{3}).*REINSTATED",
+    re.I)
+_EMBEDDED_CLOCK = re.compile(r"\s*\d{2}:\d{2}:\d{2}\s*$")
+
+
+def lap_deletions(messages: list) -> list:
+    """Which lap times the stewards struck out, and which came back.
+
+    Race control announces deletions in prose, and occasionally reverses
+    one later in the session. Both halves matter: a deletion that was
+    reinstated must not be treated as a deletion, and a consumer deciding
+    which laps count needs to see the reversal, not have it silently
+    swallowed. So this reads the whole message list twice — reversals
+    first — and reports every deletion with a ``stands`` flag rather than
+    dropping the reinstated ones.
+
+    ``messages`` is the race-control list as the session object holds it
+    (each row a dict with at least ``message``; ``date`` is carried
+    through when present). The trailing session clock some stewards embed
+    in the reason is stripped — it reads as a lap time and confuses more
+    than it informs.
+    """
+    reinstated = set()
+    for m in messages:
+        hit = _TIME_REINSTATED.search(m.get("message") or "")
+        if hit:
+            reinstated.add((hit["car"], hit["time"]))
+    out = []
+    for m in messages:
+        hit = _TIME_DELETED.search(m.get("message") or "")
+        if not hit:
+            continue
+        key = (hit["car"], hit["time"])
+        why = _EMBEDDED_CLOCK.sub("", hit["why"] or "").strip() or None
+        out.append({"car_number": int(hit["car"]),
+                    "lap_time": hit["time"],
+                    "reason": why,
+                    "stands": key not in reinstated,
+                    "date": m.get("date")})
+    return jsonsafe(out)

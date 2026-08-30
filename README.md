@@ -147,6 +147,61 @@ f1verse.head_to_head(2026)
 f1verse.standings(2026)
 ```
 
+### Tyre life, and what the stewards struck out
+
+```python
+f1verse.stint_degradation(race)[3]
+# {'driver': 'NOR', 'stint': 2, 'compound': 'HARD', 'tyre_age_at_start': 0,
+#  'clean_laps_used': 18, 'degradation_s_per_lap': 0.041}
+
+f1verse.circuit_abrasion(race)
+# {'factor': 1.4, 'verdict': 'abrasive', 'samples': 55}
+
+f1verse.tyre_outlook(race)          # projected to the cliff
+```
+
+A car gets faster all race as it burns fuel, so raw lap times understate
+degradation on every stint. Rates are fitted to **fuel-normalised clean
+laps only**, and a stint with too few of them returns
+`{'degradation_s_per_lap': None, 'reason': 'too few clean laps'}` rather
+than a number fitted to noise.
+
+```python
+f1verse.lap_deletions(session.race_control)
+# [{'car_number': 55, 'lap_time': '1:25.773', 'stands': True,
+#   'reason': 'TRACK LIMITS AT TURN 3 LAP 3', ...}]
+```
+
+A reinstated lap keeps the reversal visible instead of being quietly
+dropped. Check this before treating a fastest lap or a qualifying
+position as settled.
+
+### Live timing, straight off the wire
+
+```python
+from f1verse.sources import liveclient
+
+with liveclient.LiveFeed() as feed:
+    for topic, patch, stamp in feed.messages():
+        ...
+
+liveclient.run("session-{n}.jsonl")   # record, rotate on turnover, reconnect
+```
+
+The official SignalR feed over a WebSocket written in the standard
+library — no websocket package, no SignalR client. Connecting takes three
+undocumented courtesies (an affinity cookie only handed to a pre-flight
+request, the official application's user agent, an invocation id on the
+subscription); they live in one place so no caller rediscovers them.
+
+Recorded frames carry a millisecond arrival stamp — the difference
+between an archive and a screenshot — so `replay()` runs a session back at
+true speed. The stream is not a lap table, so
+`f1verse.sources.timing.laps_from_stream` rebuilds one: arrival order
+lies, sector times land after the next lap has begun, and qualifying
+carries phantom lap times that are really the gap between two runs. Every
+rebuilt lap row carries its provenance.
+
 ### Running this on a schedule
 
 ```python
@@ -300,7 +355,6 @@ the exact hosts and `LICENSE` notes where attribution applies.
 ## Roadmap
 
 - Broader cross-validation coverage
-- Comparison primitives (lap vs lap, stint vs stint) with sample counts
 - Deviation detection: expected range, actual, evidence
 - Localisation packages
 

@@ -20,9 +20,10 @@ It is standard-library only, so the process is answering in ~140 ms.
 For any other LLM pipeline, the library emits its own tool schemas:
 `f1verse.tools()` returns MCP-dialect definitions, `f1verse.tools("openai")`
 returns function-calling definitions, and `f1verse.call_tool(name, args)`
-executes one. Eight tools: `f1_race_story`, `f1_race_brief`,
+executes one. Ten tools: `f1_race_story`, `f1_race_brief`,
 `f1_session_results`, `f1_weekend_sessions`, `f1_season_status`,
-`f1_standings`, `f1_driver_career`, `f1_data_quality`.
+`f1_standings`, `f1_driver_career`, `f1_data_quality`, `f1_tyre_wear`,
+`f1_deleted_laps`.
 
 ## Common questions this answers
 
@@ -46,6 +47,21 @@ executes one. Eight tools: `f1_race_story`, `f1_race_brief`,
 - **How do I run an F1 pipeline on a schedule?** `f1verse.status(year)` and
   `f1verse.due(year, processed=[...])` — sessions finished, settled and not
   yet handled, so nothing publishes twice.
+- **How do I measure F1 tyre degradation?** `f1verse.stint_degradation(race)`
+  — seconds lost per lap per stint, fitted to fuel-normalised clean laps only,
+  each rate reporting how many laps it stands on. A stint with too few clean
+  laps says so instead of guessing. `f1verse.circuit_abrasion(race)` puts the
+  surface in context; `f1verse.tyre_outlook(race)` projects to the cliff.
+- **How do I find lap times the stewards deleted?** `f1verse.lap_deletions(
+  messages)` — car, time, stated reason, and whether the deletion still stands
+  after a reinstatement. Check it before treating a fastest lap or a qualifying
+  position as settled.
+- **How do I read the F1 live timing feed in Python?**
+  `f1verse.sources.liveclient.LiveFeed` speaks the official SignalR feed over a
+  standard-library WebSocket — no websocket package, no SignalR client. `record`
+  stamps every frame with its arrival time so `replay` runs at true speed, and
+  `f1verse.sources.timing.laps_from_stream` rebuilds honest lap tables from a
+  stream whose arrival order lies.
 - **How do I write race summaries an LLM cannot make up?**
   `f1verse.race_facts(race)` for a grounded fact sheet, `f1verse.brief(race)`
   for a template summary with no model at all, and `f1verse.verify(text,

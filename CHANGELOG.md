@@ -5,12 +5,42 @@ releases are immutable; a fix ships as a new patch version.
 
 ## 0.11.0
 
-**f1verse is now callable by agents, not only by people.**
+**f1verse is now callable by agents, not only by people — and it reaches the
+wire it used to read second-hand.**
+
+### Live timing, and lap tables rebuilt from it
+
+- **`sources/liveclient.py`.** The official SignalR live feed over a WebSocket
+  written in the standard library. Connecting requires three undocumented
+  courtesies — the load balancer's affinity cookie from a pre-flight request,
+  the official application's user agent, and an invocation id on the
+  subscription — and all three now live in one place. `record` stamps every
+  frame with its arrival time, `replay` runs a session back at true speed, and
+  `run` survives dropped sockets and session turnover.
+- **`sources/timing.py`.** `laps_from_stream` rebuilds per-driver lap tables
+  from the raw patch stream, whose arrival order lies. The grace window, the
+  credibility ceiling, blank-versus-unknown, and earliest-witness lap ends are
+  encoded with their reasons; every lap row carries its provenance.
+- **`_clock.py`.** One parser for every wire clock, lap and wall-time shape.
+
+### Strategy and stewards
+
+- **Tyre life.** `stint_degradation`, `circuit_abrasion`, `tyre_outlook` and
+  `fuel_normalised`. Rates are fitted to fuel-normalised clean laps only, and a
+  stint with too few of them reports that instead of a number fitted to noise.
+- **`lap_deletions`.** Every lap time race control struck out, with the reason
+  and whether a reinstatement reversed it.
+- **`strategy_rollout`** — seeded, reproducible strategy comparisons.
+- **`gaps.reconcile`** — a gap series that keeps its provenance.
+- **Per-host hourly request budgets** in `http.py`.
+
+### The agent surface
 
 - **MCP server.** `uvx --from f1verse f1verse-mcp` starts a Model Context
   Protocol server over stdio. It is implemented in the standard library
   rather than on the MCP SDK, so the zero-dependency rule holds and the
   process answers `tools/list` in roughly 140 ms.
+- **Ten tools**, including `f1_tyre_wear` and `f1_deleted_laps`.
 - **Tool catalogue.** `f1verse.tools()` returns MCP-dialect JSON schemas,
   `f1verse.tools("openai")` returns function-calling schemas, and
   `f1verse.call_tool(name, arguments)` executes one. The MCP server serves
@@ -23,6 +53,9 @@ releases are immutable; a fix ships as a new patch version.
 - **`llms.txt` and `llms-full.txt`** so a language model can take in the
   whole library in one fetch.
 - **`server.json`** for the Model Context Protocol registry.
+- New top-level exports: `stint_degradation`, `circuit_abrasion`,
+  `tyre_outlook`, `fuel_normalised`, `lap_deletions`, `strategy_rollout`,
+  `reconcile_gaps`.
 - Packaging metadata: Beta status, per-version Python classifiers,
   documentation/issues/changelog URLs, `f1verse-mcp` console script.
 

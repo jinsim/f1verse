@@ -38,6 +38,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections import deque
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
@@ -63,6 +64,18 @@ _MAX_RETRY_AFTER = 120.0
 JOURNAL = "_revisions.jsonl"
 VINTAGES = "_vintages"
 _VINTAGE_MAX_BYTES = 1 << 20   # keep the superseded body when it is small
+
+# Hosts that publish a request budget get it honoured here, at the layer
+# every request passes through, rather than trusted to each call site.
+# Exhausting a budget raises rather than silently sleeping for most of an
+# hour — the error names the wait, so a caller can decide.
+_HOURLY_BUDGET = {"api.jolpi.ca": 200}
+_DEFAULT_HOURLY_BUDGET = 500
+_request_log: dict = {}
+
+
+class BudgetExhausted(RuntimeError):
+    """The hourly request budget for a host is spent."""
 
 
 def _iso(ts: float) -> str:
@@ -126,8 +139,23 @@ def clear_cache(older_than: float | None = None) -> int:
     return removed
 
 
+def _spend(host: str) -> None:
+    limit = _HOURLY_BUDGET.get(host, _DEFAULT_HOURLY_BUDGET)
+    log = _request_log.setdefault(host, deque())
+    now = time.monotonic()
+    while log and now - log[0] > 3600:
+        log.popleft()
+    if len(log) >= limit:
+        retry_in = int(3600 - (now - log[0])) + 1
+        raise BudgetExhausted(
+            f"{host}: {limit} requests in the last hour; "
+            f"a slot frees in {retry_in}s")
+    log.append(now)
+
+
 def _fetch(url: str) -> str:
     global _last_request
+    _spend(urllib.parse.urlsplit(url).hostname or "")
     wait = 0.5 - (time.monotonic() - _last_request)
     if wait > 0:
         time.sleep(wait)
