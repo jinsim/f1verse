@@ -93,7 +93,9 @@ sessions forever, schedules 6h, standings 1h), wait
 gate publication on `crosscheck()`.
 
 Local working notes belong in `notes/` or `*.local.md`, both gitignored —
-keep planning, research and product context out of this repository.
+keep planning, research and product context out of this repository. If
+`AGENTS.local.md` exists in this checkout, read it too: it holds machine
+context that must not be published.
 
 ## Verification
 
