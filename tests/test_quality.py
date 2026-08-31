@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Quality layer: revision journal, lifecycle, coverage, snapshot/diff.
 
 Everything except the reference-race block runs offline — the journal is

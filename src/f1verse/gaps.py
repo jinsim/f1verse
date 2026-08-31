@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Broadcast-convention gap formatting.
 
 Classified times are not directly comparable: a car one lap down can carry

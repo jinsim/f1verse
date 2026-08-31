@@ -56,3 +56,19 @@ runtime by the end user. Team radio and FIA documents are returned as URLs.
 
 Small and focused, with a test that would have failed before. Describe what
 the change makes true, not what files it touches.
+
+## Licensing of contributions
+
+f1verse is licensed under **Apache-2.0**. By opening a pull request you
+agree that your contribution is licensed under those same terms, and that you
+have the right to submit it.
+
+New Python files carry the two-line header the rest of the tree uses:
+
+```python
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+```
+
+Do not paste in code from another project unless its license is compatible
+with Apache-2.0, and say where it came from in the pull request if you do.

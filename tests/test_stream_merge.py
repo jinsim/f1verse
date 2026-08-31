@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Live-timing patch semantics and compressed channels, offline."""
 import base64
 import zlib

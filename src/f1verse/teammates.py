@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Teammate head-to-head — the comparison fans ask for and cannot find.
 
 Same car, same everything: the only clean controlled comparison in the

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Circuit geometry (MultiViewer public API).
 
 Track outline, corner numbers/angles, marshal sectors and pit loss —

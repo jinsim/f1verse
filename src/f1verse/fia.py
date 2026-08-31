@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """FIA decision documents — the primary source behind every penalty.
 
 The FIA publishes stewards' decisions, classifications and technical

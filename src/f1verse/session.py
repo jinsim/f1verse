@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Session loader — one object for every kind of session on a weekend.
 
 A Grand Prix weekend is not one session. Qualifying decides the grid,

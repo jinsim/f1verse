@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Additional live-timing feeds.
 
 The official archive publishes a number of topics that are rarely

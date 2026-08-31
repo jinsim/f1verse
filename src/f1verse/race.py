@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Race loader — the story a race session tells.
 
 ``f1verse.load(year, round)`` builds a :class:`Race` from public REST data

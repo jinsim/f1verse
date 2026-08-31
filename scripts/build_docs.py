@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Build the documentation site — standard library, like everything else.
 
 The site exists to be read by two audiences that want opposite things.
@@ -258,6 +261,47 @@ PAGES = [
         related=["f1-mcp-server", "f1-race-json-one-call"],
     ),
     Page(
+        "f1-championship-probability",
+        "Calculate F1 championship win probability in Python",
+        "How do I calculate F1 title win probability?",
+        "Call <code>f1verse.championship_projection(year)</code>. It plays the "
+        "remaining rounds out thousands of times, resampling each driver from "
+        "the positions they have actually finished in, and returns a title "
+        "probability with the evidence it stands on.",
+        '>>> f1verse.title_scenarios(2026)["max_points_available"]\n'
+        '283                        # arithmetic: who is mathematically out\n'
+        '>>> f1verse.championship_projection(2026)["drivers"][0]\n'
+        "{'driver': 'ANT', 'title_probability': 0.954, 'points_now': 242.0,\n"
+        " 'projected_points_median': 446, 'projected_points_p10': 390,\n"
+        " 'projected_points_p90': 490, 'races_in_sample': 11,\n"
+        " 'measured_dnf_rate': 0.08}",
+        notes=[
+            "Two questions, kept apart on purpose. "
+            "<code>title_scenarios</code> answers <em>can this still "
+            "happen</em> — maximum points remaining is a fixed number, so that "
+            "is arithmetic, not a forecast. "
+            "<code>championship_projection</code> answers <em>how likely</em>. "
+            "Printing one as the other is how a projection ends up implying "
+            "somebody is eliminated when the maths says otherwise.",
+            "A simulated finish is resampled from that driver's own results, "
+            "not drawn from a curve around their average. The difference "
+            "decides championships: alternating wins and retirements is a "
+            "different proposition from finishing fourth every weekend, and "
+            "the mean cannot tell them apart. Retirements fire at each "
+            "driver's measured rate and sprints score on their own table.",
+            "Every run re-draws the driver's level first, bootstrapping their "
+            "results before playing the season against that version of them. "
+            "Twelve races is a small sample, and treating it as settled is how "
+            "a forecast becomes more confident than anyone should be.",
+            "<code>f1verse.backtest_projection()</code> replays the model on "
+            "finished seasons and buckets the record by claimed confidence. "
+            "At round 12 of 2019-2025 it went 5/5 when it claimed 90%+, and "
+            "both misses were seasons it had itself called near 55% — the two "
+            "that ran to the final round.",
+        ],
+        related=["f1-race-json-one-call", "f1-undercut-analysis", "f1-mcp-server"],
+    ),
+    Page(
         "f1-tyre-degradation",
         "Measure F1 tyre degradation in Python",
         "How do I measure F1 tyre degradation from race data?",
@@ -353,8 +397,9 @@ MCP_PAGE = Page(
     '  }\n'
     '}',
     notes=[
-        "Eight tools, not eighty — a catalogue a model can actually choose "
-        "from. The server tells the client to resolve vague references with "
+        "A catalogue a model can actually choose from, not eighty "
+        "near-duplicates. The server tells the client to resolve vague "
+        "references with "
         "<code>f1_season_status</code> first, and to check "
         "<code>f1_data_quality</code> before calling a fresh result final.",
         "For any other LLM pipeline, the library emits the same catalogue "
@@ -451,7 +496,7 @@ def head(page: Page, description: str, jsonld: list) -> str:
 
 FOOTER = f"""
 <footer>
-<p>f1verse {__version__} · MIT · <a href="{REPO}">github.com/jinsim/f1verse</a>
+<p>f1verse {__version__} · Apache-2.0 · <a href="{REPO}">github.com/jinsim/f1verse</a>
 · <a href="{SITE}/llms.txt">llms.txt</a></p>
 <p>Unofficial fan project. Not affiliated with, endorsed by, or associated with
 Formula 1, FIA, FOM, or any F1 team. F1, FORMULA 1 and related marks are
@@ -510,7 +555,7 @@ def render_index() -> str:
          "name": "f1verse", "description": TAGLINE, "url": f"{SITE}/",
          "codeRepository": REPO, "programmingLanguage": "Python",
          "runtimePlatform": "Python 3.9+", "version": __version__,
-         "license": "https://opensource.org/licenses/MIT",
+         "license": "https://www.gnu.org/licenses/agpl-3.0.html",
          "applicationCategory": "DeveloperApplication",
          "keywords": ("Formula 1, F1, motorsport, telemetry, race analysis, "
                       "MCP server, LLM tools, zero dependency")},

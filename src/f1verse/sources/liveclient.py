@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Live timing over the wire — standard library only.
 
 The official feed speaks the modern SignalR hub protocol over a

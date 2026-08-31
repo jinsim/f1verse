@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """JSON-safe conversion — every public f1verse output passes through here.
 
 Values arriving from analysis code may be numpy scalars or pandas

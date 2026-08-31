@@ -6,7 +6,7 @@
 > and tells you whether the data is complete and final enough to publish.
 > Race data covers 2023 onward; careers, circuits and records reach 1950.
 
-Install: `pip install f1verse` · MIT · unofficial fan project, not
+Install: `pip install f1verse` · Apache-2.0 · unofficial fan project, not
 affiliated with Formula 1, FIA or FOM. Contains code only: no timing data,
 media or images are bundled or redistributed; the end user fetches from
 public endpoints at runtime.

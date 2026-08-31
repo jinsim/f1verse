@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Careers, records and milestones — the "what does this mean historically"
 layer that live timing cannot provide.
 

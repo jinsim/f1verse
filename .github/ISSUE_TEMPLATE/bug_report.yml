@@ -1,0 +1,62 @@
+name: Bug report
+description: A call returns the wrong answer, raises, or hangs.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing: results are provisional until the stewards finish.
+        Within a few hours of a session, `f1verse.quality_report(...)` will
+        tell you whether the numbers are final yet. A number that changes
+        after the session is usually that, not a bug.
+
+  - type: input
+    id: version
+    attributes:
+      label: f1verse version and Python version
+      description: 'Run: `python -c "import f1verse,sys; print(f1verse.__version__, sys.version)"`'
+      placeholder: 0.13.0 3.12.4
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: What you ran
+      description: >
+        The smallest snippet that shows it, including the year and round —
+        the era a session falls in changes what is available.
+      render: python
+      placeholder: |
+        import f1verse
+        race = f1verse.load(2026, 12)
+        race.laps_led()
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened
+      description: The output, or the full traceback.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+      description: >
+        If another source disagrees, say which one and what it shows.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I am on the latest release.
+          required: true
+        - label: I cleared the cache (`f1verse.clear_cache()`) and it still happens.

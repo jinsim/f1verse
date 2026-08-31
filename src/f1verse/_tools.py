@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Agent-facing tool catalogue — the library describes itself.
 
 An LLM pipeline should not need a hand-written adapter to call f1verse.
@@ -211,6 +214,26 @@ _SPECS = [
         "params": {"year": _YEAR, "round": _ROUND},
         "required": ["year", "round"],
     },
+    {
+        "name": "f1_title_race",
+        "summary": "Championship win probability, and who is still mathematically alive.",
+        "description": (
+            "Two answers to 'who wins the title', kept deliberately apart. "
+            "First the arithmetic: maximum points still available, and who "
+            "is therefore out for certain — a fact, not a forecast. Then the "
+            "projection: the rest of the season simulated thousands of "
+            "times, resampling each driver from the positions they have "
+            "actually finished in, with retirements at their measured rate. "
+            "Every run first re-draws the driver's own level, so a short "
+            "season widens the answer rather than hiding inside it. Returns "
+            "the assumptions and sample sizes it stands on; the same seed "
+            "returns the same numbers."),
+        "params": {"year": _YEAR,
+                   "runs": {"type": "integer", "default": 20000,
+                            "description": "Simulated seasons. More is "
+                                           "steadier and slower."}},
+        "required": ["year"],
+    },
 ]
 
 def _story(year, round, **_):
@@ -305,6 +328,12 @@ def _highlights(year, round, **_):
     return {"hotspots": overtake_hotspots(load(year, round))[:10]}
 
 
+def _title_race(year, runs=20000, **_):
+    from .predict import championship_projection, title_scenarios
+    return {"scenarios": title_scenarios(year),
+            "projection": championship_projection(year, runs=int(runs))}
+
+
 _HANDLERS = {
     "f1_race_story": _story,
     "f1_race_brief": _brief,
@@ -322,6 +351,7 @@ _HANDLERS = {
     "f1_closest_titles": _title_margins,
     "f1_season_shape": _season_shape,
     "f1_highlights": _highlights,
+    "f1_title_race": _title_race,
 }
 
 NAMES = tuple(spec["name"] for spec in _SPECS)

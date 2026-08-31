@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://jinsim.github.io/f1verse/
+    about: Each page answers one question and leads with the answer.
+  - name: Question or idea
+    url: https://github.com/jinsim/f1verse/discussions
+    about: For "how do I ..." and "should f1verse ...". Bugs go in issues.
+  - name: Security vulnerability
+    url: https://github.com/jinsim/f1verse/security/advisories/new
+    about: Report privately. Never in a public issue.

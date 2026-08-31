@@ -1,0 +1,18 @@
+f1verse — the story layer for Formula 1 data
+Copyright 2026 jinsim <https://github.com/jinsim>
+
+Licensed under the Apache License, Version 2.0. See LICENSE.
+
+The Apache License does not grant permission to use the f1verse name or
+branding to imply endorsement, certification, or official status. Accurate
+descriptive references to the project are welcome.
+
+f1verse is an unofficial fan project. It is not associated with, endorsed by,
+or affiliated with Formula 1, the FIA, or any Formula 1 team. "F1", "FORMULA
+ONE", "FORMULA 1", "GRAND PRIX" and related marks are trademarks of Formula
+One Licensing B.V.
+
+The Apache License covers the f1verse source code only. Formula 1 timing,
+telemetry, radio, results, documents, and other data read over the network
+remain the property of their respective rights holders and are subject to
+their terms.

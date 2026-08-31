@@ -4,16 +4,18 @@
 [![Python](https://img.shields.io/pypi/pyversions/f1verse.svg)](https://pypi.org/project/f1verse/)
 [![Tests](https://github.com/jinsim/f1verse/actions/workflows/test.yml/badge.svg)](https://github.com/jinsim/f1verse/actions/workflows/test.yml)
 [![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)](https://github.com/jinsim/f1verse/blob/main/pyproject.toml)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 **[Documentation](https://jinsim.github.io/f1verse/)** ·
 [MCP server](https://jinsim.github.io/f1verse/f1-mcp-server/) ·
 [llms.txt](https://jinsim.github.io/f1verse/llms.txt) ·
-[Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md)
+[Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) ·
+[Security](SECURITY.md) · [License](LICENSE)
 
 **The story layer for Formula 1 data.** Data libraries fetch and tidy —
 f1verse tells you *what happened*: lead changes, laps led, event timelines,
-stint strategy, race pace, and a live championship projection.
+stint strategy, race pace — and *what happens next*: title probabilities from
+a season simulation that ships with its own backtest.
 
 **Zero dependencies.** Standard library only. Full live-timing coverage from
 2023; lap-by-lap racing back to 1996, pit stops to 2011, and results,
@@ -37,6 +39,9 @@ race.story()         # one call, whole story, plain JSON
 
 race.championship_prediction()   # per-lap "if it ended now" title projection
 race.team_radio()                # timestamped clip URLs (nothing downloaded)
+
+f1verse.championship_projection(2026)   # who wins the title, 20,000 seasons
+f1verse.title_scenarios(2026)           # and who is mathematically out
 ```
 
 ### Give it to an AI agent
@@ -334,6 +339,56 @@ numbers and driver codes are rejected, generation is retried at most twice,
 and a deterministic summary is returned if verification still fails. The
 optional cache is exact-match only and stores verified text.
 
+### Who wins the championship — and who still can
+
+Two different questions, and mixing them is how a projection ends up
+implying somebody is out when the arithmetic says otherwise.
+
+```python
+f1verse.title_scenarios(2026)
+# arithmetic, not a forecast — maximum points left is a fixed number
+# {'rounds_left': 11, 'sprints_left': 1, 'max_points_available': 283,
+#  'drivers': [{'driver': 'RUS', 'gap_to_leader': 59.0,
+#               'still_possible': True, 'needs_avg_per_round': 5.4}, ...],
+#  'still_alive': 23}
+
+f1verse.championship_projection(2026)
+# the rest of the season, played out 20,000 times
+# {'drivers': [{'driver': 'ANT', 'title_probability': 0.954,
+#               'points_now': 242.0, 'projected_points_median': 446,
+#               'projected_points_p10': 390, 'projected_points_p90': 490,
+#               'races_in_sample': 11, 'measured_dnf_rate': 0.08}, ...],
+#  'assumptions': {'ignores': ['car development', 'weather', ...], ...}}
+```
+
+A simulated finish is **resampled from the positions that driver has
+actually finished in**, not drawn from a curve around their average. The
+distinction decides championships: alternating wins and retirements is a
+different proposition from finishing fourth every weekend, and the mean
+is the same for both. Retirements fire at each driver's measured rate,
+sprints score on their own table, and ties break on wins then seconds,
+as the regulations do.
+
+Every run also re-draws the driver's own level first, bootstrapping their
+results before playing the season against that version of them — twelve
+races is a small sample, and treating it as settled truth is how a
+forecast becomes more confident than anyone should be.
+
+```python
+f1verse.backtest_projection()      # does the model deserve to be believed?
+# {'by_confidence': {'over_90': {'n': 5, 'correct': 5, 'rate': 1.0},
+#                    'under_60': {'n': 2, 'correct': 0, 'rate': 0.0}}, ...}
+```
+
+Replayed at round 12 of 2019-2025 it went 5/5 when it claimed 90%+; both
+misses were seasons it had itself called at 53% and 57% — the two that ran
+to the final round. Read the buckets, not the headline: a model that says
+55% and is wrong has done nothing wrong.
+
+> `championship_prediction` (in `feeds`) is a different thing — F1's own
+> live "if it ended now" table. `championship_projection` is this model.
+> One reports, the other forecasts.
+
 ### Predictions, pit-stop verdicts, official documents
 
 ```python
@@ -415,7 +470,8 @@ pip install -e ".[test]" && pytest -q
 | Circuit geometry | track outline, corners, marshal sectors, pit loss |
 
 All are public endpoints, read at runtime. See `src/f1verse/sources/` for
-the exact hosts and `LICENSE` notes where attribution applies.
+the exact hosts, and `NOTICE` for how upstream data rights relate to this
+project's own license.
 
 ## Design rules
 
@@ -428,6 +484,18 @@ the exact hosts and `LICENSE` notes where attribution applies.
    computed by convention *and* confirmed against a second source.
 5. **Code only.** No timing data, media, or images are bundled or
    redistributed; data is fetched by the end user.
+
+## License
+
+Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+Use it privately or commercially; read it, change it, redistribute it, and
+build products or hosted services on it. Preserve the license and notices,
+state significant changes, and observe the license's patent terms. There is no
+source-disclosure requirement for software or services that use f1verse.
+
+This license covers f1verse's own source. The Formula 1 data it reads at
+runtime belongs to its respective rights holders under their own terms.
 
 ## Roadmap
 

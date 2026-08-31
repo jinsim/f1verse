@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Cross-validation layer — publish only when independent sources agree.
 
 One wrong number costs a data project its credibility. ``crosscheck`` runs

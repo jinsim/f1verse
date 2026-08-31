@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Lap tables rebuilt from the raw timing patch stream.
 
 ``TimingData.jsonStream`` is not a table of laps — it is a stream of

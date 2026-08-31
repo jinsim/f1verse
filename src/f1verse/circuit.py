@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Circuit profiles — geometry, layout facts and historic record in one call.
 
 Answers the questions a race preview asks: what does this track look like,

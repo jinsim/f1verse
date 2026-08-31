@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Tyre-life and deletion logic, without touching the network."""
 from f1verse.quality import lap_deletions
 from f1verse.strategy import (FUEL_BURN_KG_PER_LAP, FUEL_COST_S_PER_KG,

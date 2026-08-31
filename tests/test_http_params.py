@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Range parameters are built by hand, not by urlencode.
 
 These APIs express ranges as ``date>=value``. Passing that through

@@ -1,0 +1,44 @@
+name: Feature request
+description: A question about a race that f1verse cannot answer yet.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        f1verse is a story layer, not a data dump — it earns a new call when
+        that call answers a question a person would actually ask about a race.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: The question you want answered
+      description: Phrase it the way you would ask a person, not as an API name.
+      placeholder: Who actually lost the most time behind the safety car?
+    validations:
+      required: true
+
+  - type: textarea
+    id: today
+    attributes:
+      label: What you do today
+      description: Which calls you combine now, and where it falls apart.
+    validations:
+      required: true
+
+  - type: textarea
+    id: shape
+    attributes:
+      label: What the answer should look like
+      description: >
+        A sketch of the returned JSON, if you have one in mind. Say which
+        F1 rules the default should already apply.
+      render: python
+
+  - type: input
+    id: era
+    attributes:
+      label: Which seasons this needs to cover
+      description: >
+        Live timing is 2023 onward; laps to 1996, pit stops to 2011, results
+        and standings to 1950.
+      placeholder: 2023 onward is fine

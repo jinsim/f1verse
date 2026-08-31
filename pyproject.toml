@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,9 +7,10 @@ name = "f1verse"
 dynamic = ["version"]
 description = "The story layer for Formula 1 data — zero-dependency race narratives: lead changes, stints, race pace, live championship projection, team radio index."
 readme = "README.md"
-license = { text = "MIT" }
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.9"
-authors = [{ name = "f1verse contributors" }]
+authors = [{ name = "jinsim" }]
 keywords = [
   "f1", "formula1", "formula-1", "motorsport", "racing", "grand-prix",
   "telemetry", "live-timing", "race-analysis", "data-analysis",
@@ -19,7 +20,6 @@ classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
   "Intended Audience :: Science/Research",
-  "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.9",
@@ -45,6 +45,7 @@ Documentation = "https://jinsim.github.io/f1verse/"
 Source = "https://github.com/jinsim/f1verse"
 Issues = "https://github.com/jinsim/f1verse/issues"
 Changelog = "https://github.com/jinsim/f1verse/releases"
+License = "https://github.com/jinsim/f1verse/blob/main/LICENSE"
 
 [tool.setuptools.packages.find]
 where = ["src"]

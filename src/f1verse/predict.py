@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Race win probabilities — from measured base rates, not vibes.
 
 Every number here is traceable. The model is deliberately simple and its
@@ -222,6 +225,29 @@ RACE_POINTS = {1: 25, 2: 18, 3: 15, 4: 12, 5: 10,
 SPRINT_POINTS = {1: 8, 2: 7, 3: 6, 4: 5, 5: 4, 6: 3, 7: 2, 8: 1}
 
 
+def _standings_at(year: int, upto_round: int | None) -> tuple:
+    """``(rows, round)`` — the championship as it stood after a round.
+
+    ``upto_round=None`` means "however far the season has got". Asking for
+    a past round is what makes a backtest possible: the projection can be
+    replayed from a point where the answer was not yet known.
+    """
+    from .history import standings
+    from .sources import jolpica
+    if upto_round is None:
+        t = standings(year)
+        return t["standings"], t["round"]
+    lists = jolpica.get(f"{year}/{upto_round}/driverStandings")[
+        "StandingsTable"]["StandingsLists"]
+    if not lists:
+        return [], upto_round
+    rows = [{"position": int(x["position"]),
+             "name": x["Driver"].get("code") or x["Driver"]["driverId"],
+             "points": float(x["points"]), "wins": int(x["wins"])}
+            for x in lists[0]["DriverStandings"]]
+    return rows, int(lists[0]["round"])
+
+
 def _season_form(year: int, upto_round: int) -> dict:
     """Each driver's actual results so far — the raw material for the
     simulation.
@@ -267,7 +293,7 @@ def remaining_rounds(year: int, after_round: int) -> list:
     return out
 
 
-def title_scenarios(year: int) -> dict:
+def title_scenarios(year: int, as_of: int | None = None) -> dict:
     """Who can still win the title — arithmetic, not probability.
 
     Before any simulation is worth reading, there is an exact question:
@@ -276,9 +302,7 @@ def title_scenarios(year: int) -> dict:
     separates the two claims a projection makes — *impossible* is a fact,
     *unlikely* is a model — and never lets one be mistaken for the other.
     """
-    from .history import standings
-    table = standings(year)
-    rows, done = table["standings"], table["round"]
+    rows, done = _standings_at(year, as_of)
     left = remaining_rounds(year, done)
     max_left = sum(25 + (8 if r["sprint"] else 0) for r in left)
     leader = rows[0]["points"] if rows else 0.0
@@ -310,7 +334,8 @@ def _order_from_draws(draws: dict, rng) -> list:
 
 
 def championship_projection(year: int, runs: int = 20000, seed: int = 0,
-                            min_races: int = 3) -> dict:
+                            min_races: int = 3,
+                            as_of: int | None = None) -> dict:
     """Title probability per driver, by playing the season out.
 
     Each remaining round is simulated by drawing every driver a finishing
@@ -326,10 +351,8 @@ def championship_projection(year: int, runs: int = 20000, seed: int = 0,
     Same ``seed``, same numbers.
     """
     import random as _random
-    from .history import standings
 
-    table = standings(year)
-    rows, done = table["standings"], table["round"]
+    rows, done = _standings_at(year, as_of)
     left = remaining_rounds(year, done)
     form = _season_form(year, done)
 
@@ -354,12 +377,26 @@ def championship_projection(year: int, runs: int = 20000, seed: int = 0,
     finals = {c: [] for c in modelled}
 
     for _ in range(runs):
+        # A driver's "level" is itself an estimate off a dozen races, and
+        # treating it as known is how a projection ends up more certain
+        # than anyone should be. So each simulated season begins by
+        # re-drawing that level: the driver's results are bootstrapped
+        # with replacement, and the season is then run against *that*
+        # version of them. Some runs get the good version, some the bad.
+        level = {}
+        for c, f in modelled.items():
+            n = len(f["finishes"])
+            level[c] = {"finishes": [rng.choice(f["finishes"]) for _ in range(n)],
+                        "dnf_rate": min(max(rng.gauss(
+                            f["dnf_rate"],
+                            (f["dnf_rate"] * (1 - f["dnf_rate"]) / max(f["started"], 1)) ** 0.5
+                        ), 0.0), 0.6)}
         pts = {c: start_pts.get(c, 0.0) for c in modelled}
         wins = {c: start_wins.get(c, 0) for c in modelled}
         seconds = {c: 0 for c in modelled}
         for rnd in left:
             draws, out = {}, []
-            for c, f in modelled.items():
+            for c, f in level.items():
                 if rng.random() < f["dnf_rate"]:
                     out.append(c)
                 else:
@@ -373,8 +410,8 @@ def championship_projection(year: int, runs: int = 20000, seed: int = 0,
                     seconds[c] += 1
             if rnd["sprint"]:
                 # a sprint is its own short race; the same form applies
-                sp_draws = {c: rng.choice(modelled[c]["finishes"])
-                            for c in modelled if c not in out}
+                sp_draws = {c: rng.choice(level[c]["finishes"])
+                            for c in level if c not in out}
                 for i, c in enumerate(_order_from_draws(sp_draws, rng), 1):
                     pts[c] += SPRINT_POINTS.get(i, 0)
         champ = max(pts, key=lambda c: (pts[c], wins[c], seconds[c]))
@@ -405,10 +442,64 @@ def championship_projection(year: int, runs: int = 20000, seed: int = 0,
             "method": "resampled from each driver's own finishing "
                       "positions this season; draws re-ranked into a "
                       "valid race order",
-            "retirements": "each driver's measured rate this season",
+            "retirements": "each driver's measured rate this season, "
+                           "itself resampled per run",
+            "level_uncertainty": "each run bootstraps the driver's own "
+                                 "results before playing the season, so "
+                                 "a small sample widens the answer "
+                                 "instead of hiding in it",
             "tiebreak": "points, then wins, then second places",
             "ignores": ["car development", "weather", "team orders",
                         "penalties", "driver changes"],
             "runs": runs, "seed": seed, "min_races": min_races,
         },
+    })
+
+
+def backtest_projection(first: int = 2019, last: int = 2025,
+                        as_of: int = 12, runs: int = 1500,
+                        seed: int = 1) -> dict:
+    """Replay the projection on finished seasons and score it.
+
+    A probability nobody has checked is decoration. This runs the same
+    model at a point in each past season where the answer was not yet
+    known, and compares what it claimed against what happened.
+
+    Read the buckets, not the headline rate: a model that says 55% and
+    is wrong has done nothing wrong, while one that says 99% and is
+    wrong has. ``by_confidence`` splits the record accordingly, which is
+    the only way a hit rate off a handful of seasons means anything.
+    """
+    from .history import standings
+    cases = []
+    for year in range(first, last + 1):
+        try:
+            actual = standings(year)["standings"][0]["name"]
+            p = championship_projection(year, runs=runs, seed=seed,
+                                        as_of=as_of)
+        except Exception:
+            continue
+        if p.get("settled") or not p.get("drivers"):
+            continue
+        top = p["drivers"][0]
+        cases.append({"year": year, "predicted": top["driver"],
+                      "claimed_probability": top["title_probability"],
+                      "actual": actual,
+                      "correct": top["driver"] == actual})
+    buckets = {"over_90": [], "60_to_90": [], "under_60": []}
+    for c in cases:
+        q = c["claimed_probability"]
+        key = "over_90" if q >= 0.9 else "60_to_90" if q >= 0.6 else "under_60"
+        buckets[key].append(c["correct"])
+    return jsonsafe({
+        "seasons_tested": len(cases),
+        "as_of_round": as_of,
+        "cases": cases,
+        "hit_rate": (round(sum(c["correct"] for c in cases) / len(cases), 3)
+                     if cases else None),
+        "by_confidence": {k: {"n": len(v), "correct": sum(v),
+                              "rate": round(sum(v) / len(v), 3) if v else None}
+                          for k, v in buckets.items()},
+        "note": "small sample; the confidence buckets say more than the "
+                "headline rate",
     })

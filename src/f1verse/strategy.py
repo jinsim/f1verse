@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Undercut / overcut verdicts — did the stop actually gain anything?
 
 An undercut works when a driver pits first, runs fresh rubber while the

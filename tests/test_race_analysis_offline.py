@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Running order, churn and battle detection, on a fixed synthetic race."""
 from f1verse.race import Race
 

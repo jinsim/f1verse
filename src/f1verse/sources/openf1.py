@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Thin OpenF1 REST client (https://openf1.org) — coverage from 2023 season."""
 from __future__ import annotations
 

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """f1verse — the story layer for Formula 1 data.
 
 >>> import f1verse
@@ -14,6 +17,10 @@ to 1950.
 """
 from . import http
 from ._version import __version__
+
+__license__ = "Apache-2.0"
+__copyright__ = "Copyright (C) 2026 jinsim"
+__source__ = "https://github.com/jinsim/f1verse"
 from ._json import jsonsafe
 from .archive import ArchiveRace, coverage as era_coverage, load_archive
 from .feeds import (championship_prediction, overtake_hotspots,
@@ -32,8 +39,9 @@ from .telemetry import lap_telemetry, lap_trace, top_speeds
 from .weather import readings as weather_readings, summary as weather_summary
 from .narration import (brief, narrate, prompt as narration_prompt,
                         race_facts, unsupported_numbers, verify)
-from .predict import (grid_base_rates, recent_form, strategy_rollout,
-                      win_probabilities)
+from .predict import (backtest_projection, championship_projection,
+                      grid_base_rates, recent_form, strategy_rollout,
+                      title_scenarios, win_probabilities)
 from .strategy import (circuit_abrasion, circuit_pit_loss, fuel_normalised,
                        pit_exchanges,
                        stint_degradation, tyre_outlook)
@@ -45,7 +53,8 @@ cache_info = http.cache_info
 clear_cache = http.clear_cache
 revisions = http.revisions
 vintage = http.vintage
-__all__ = ["load", "load_session", "sessions", "Race", "Session",
+__all__ = ["__version__", "__license__", "__source__",
+           "load", "load_session", "sessions", "Race", "Session",
            "Qualifying", "Practice", "format_gap", "jsonsafe", "enable_cache",
            "cache_info", "clear_cache", "revisions", "vintage",
            "quality_report", "snapshot", "diff", "SCHEMA_VERSION",
@@ -54,6 +63,8 @@ __all__ = ["load", "load_session", "sessions", "Race", "Session",
            "crosscheck", "career", "milestones", "circuit_history", "standings",
            "circuit_profile", "head_to_head", "win_probabilities",
            "grid_base_rates", "recent_form", "strategy_rollout",
+           "title_scenarios", "championship_projection",
+           "backtest_projection",
            "pit_exchanges", "stint_degradation", "circuit_abrasion",
            "tyre_outlook", "fuel_normalised", "lap_deletions",
            "reconcile_gaps",

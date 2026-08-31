@@ -9,14 +9,36 @@ __pycache__/
 # fetched data and caches — never committed
 cache/
 .cache/
+data/
+datasets/
+archives/
+recordings/
 *.mp3
+*.mp4
+*.wav
+*.webm
+*.jsonl
+*.sqlite
+*.sqlite3
+*.db
+*.parquet
 *.pickle
 *.pkl
 
 # local working notes (not part of the library)
 notes/
 scratch/
+private/
+.private/
+research/
+product/
+studio/
+reports/
+renders/
 *.local.md
+.env
+.env.*
+!.env.example
 .DS_Store
 
 # generated documentation site

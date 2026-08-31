@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Loading the rest of the weekend, not just the race.
 
 The reference weekend (2026 round 12) is a sprint weekend, so it carries

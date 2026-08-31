@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Grounded text generation — facts stay in Python, wording comes from a model.
 
 The division of labour is deliberate and strict:

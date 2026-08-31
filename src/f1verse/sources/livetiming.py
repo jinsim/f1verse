@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Direct client for the official live-timing static archive.
 
 Session paths are discovered via the season ``Index.json``, so no

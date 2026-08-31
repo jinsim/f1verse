@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """The published surfaces: the site generator and the registry manifest.
 
 These are the parts a reader — human or model — sees before any code runs,

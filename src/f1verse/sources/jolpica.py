@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Jolpica client — the community successor to Ergast (1950 → today).
 
 Ergast shut down at the end of 2024; Jolpica is its drop-in replacement and

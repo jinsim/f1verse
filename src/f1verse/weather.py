@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Track conditions through a session.
 
 Weather is sampled about once a minute: air and track temperature,

@@ -3,6 +3,77 @@
 Versions follow [semantic versioning](https://semver.org). Published
 releases are immutable; a fix ships as a new patch version.
 
+## 0.13.0
+
+**The library learns to answer "who wins the title" — and, separately,
+"who still can" — under the adoption-friendly Apache-2.0 license.**
+
+### License
+
+f1verse moves from MIT to **Apache-2.0**. Versions up to and including
+0.12.0 remain available under MIT; Apache-2.0 applies from this release.
+Both are OSI-approved and allow private and commercial use. Apache-2.0 adds
+explicit patent terms and a clear notice mechanism while keeping adoption
+friction low: products and hosted services can build on f1verse without a
+source-disclosure requirement.
+
+The license covers this source code only. The Formula 1 data f1verse reads
+over the network belongs to its rights holders and is subject to their
+terms, not to ours.
+
+### Two questions, deliberately kept apart
+
+- **`title_scenarios(year)`.** Maximum points still available is a fixed
+  number, so whether a driver is mathematically out is arithmetic, not
+  opinion. This returns that: the gap to the leader, whether it is still
+  bridgeable, and the average haul per remaining round it would take. No
+  model, no probability, no hedging.
+- **`championship_projection(year)`.** The rest of the season played out
+  thousands of times. Each remaining round draws every driver a finishing
+  position, ranks those draws into a real order, awards points — race and
+  sprint tables both — and breaks ties the way the regulations do: on
+  wins, then second places.
+
+Conflating the two is how a projection ends up implying a driver is
+eliminated when the arithmetic says otherwise, so they are separate calls
+and a new invariant says to keep them that way.
+
+### Where a simulated finish comes from
+
+Not a bell curve around an average. A driver's simulated result is
+**resampled from the positions they have actually finished in this
+season**, because an average hides the distinction that decides
+championships: alternating wins and retirements is a different
+proposition from finishing fourth every weekend, and the mean is
+identical. Retirements fire at each driver's measured rate.
+
+Every run also **re-draws the driver's own level first**, bootstrapping
+their results before playing the season against that version of them.
+Twelve races is a small sample, and treating the level as known is how a
+projection becomes more certain than anybody should be — on the 2026
+season that single change moved the leader from 99.3% to 95.4%.
+
+### A forecast that checks itself
+
+- **`backtest_projection()`.** Replays the model at a point in each past
+  season where the answer was not yet known, and scores it. Results are
+  bucketed by claimed confidence, because a hit rate off seven seasons
+  means nothing while "was 95% actually 95%" means something.
+- On 2019-2025 at round 12 it went **5/5 in the 90%+ bucket**; both misses
+  were seasons it had itself called at 53% and 57% — the two that ran to
+  the final round. A model that knows when it does not know.
+
+### Also
+
+- **`championship_projection(..., as_of=N)`.** Standings as they stood
+  after any round, which is what makes the backtest possible and lets a
+  title race be replayed from any point in its history.
+- **`f1_title_race`** joins the agent catalogue, returning the arithmetic
+  and the projection together.
+- Note the neighbours: `championship_prediction` (from `feeds`) is F1's own
+  live "if it ended now" feed; `championship_projection` is this model.
+  One reports, the other forecasts.
+
 ## 0.12.0
 
 **The library stops pretending F1 began in 2023, and learns to read a race

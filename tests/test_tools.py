@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """The agent-facing surface: tool schemas and the dispatcher.
 
 These are the contract an LLM sees. They must hold without a network —

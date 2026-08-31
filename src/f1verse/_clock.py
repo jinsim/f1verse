@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Wire-format clocks, parsed without a dependency.
 
 The timing feeds are inconsistent about time in three separate ways: a

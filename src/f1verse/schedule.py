@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Season calendar and run scheduling — when should a pipeline wake up?
 
 An automated pipeline needs to answer three questions without a human:

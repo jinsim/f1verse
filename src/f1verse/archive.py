@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Races before the live-timing era — 1996 to 2022.
 
 :class:`~f1verse.race.Race` needs the per-session feeds that only exist

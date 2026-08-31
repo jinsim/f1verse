@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """MCP server — F1 as a tool an AI agent can hold.
 
 Run it with no install step and no dependencies::
@@ -26,7 +29,8 @@ from ._version import __version__
 
 PROTOCOL_VERSION = "2025-06-18"
 SERVER_INFO = {"name": "f1verse", "title": "f1verse — Formula 1 story layer",
-               "version": __version__}
+               "version": __version__,
+               "websiteUrl": "https://github.com/jinsim/f1verse"}
 INSTRUCTIONS = (
     "Formula 1 data with the domain rules already applied. Resolve vague "
     "references first: f1_season_status turns 'the last race' into a round "

@@ -9,7 +9,7 @@ happened in this race" and "what does it mean historically", built on top
 of public data sources.
 
 - Language: Python ≥3.9. **Zero dependencies** (standard library only).
-- Public repo: https://github.com/jinsim/f1verse · MIT · unofficial fan project.
+- Public repo: https://github.com/jinsim/f1verse · Apache-2.0 · unofficial fan project.
 
 ## Module map
 
@@ -33,7 +33,7 @@ of public data sources.
 | `history.py` | careers, milestones, circuit records, standings, cross-season rankings | `career`, `milestones`, `circuit_history`, `standings`, `title_margins`, `season_shape` |
 | `circuit.py` | geometry + history in one profile | `profile(year, round)` |
 | `teammates.py` | teammate head-to-head scores | `head_to_head(year)` |
-| `predict.py` | win probabilities from measured base rates; seeded strategy rollouts | `win_probabilities`, `grid_base_rates`, `strategy_rollout` |
+| `predict.py` | win probabilities from measured base rates; seeded strategy rollouts; championship projection with its own backtest | `win_probabilities`, `grid_base_rates`, `strategy_rollout`, `title_scenarios`, `championship_projection`, `backtest_projection` |
 | `strategy.py` | undercut/overcut verdicts against real pit loss; fuel-normalised tyre life and outlook | `pit_exchanges(race)`, `circuit_pit_loss`, `stint_degradation`, `circuit_abrasion`, `fuel_normalised`, `tyre_outlook` |
 | `telemetry.py` | car data and track position, per lap | `lap_telemetry`, `lap_trace`, `top_speeds` |
 | `weather.py` | session conditions | `readings`, `summary` |
@@ -75,32 +75,44 @@ of public data sources.
 8. **Every change to a cached body is journalled.** `http` writes the
    superseded copy and a record to `_revisions.jsonl`; `clear_cache` must
    never delete it. It is the evidence a correction notice is written from.
-9. **Numbers carry their evidence.** `win_probabilities` returns the base
+9. **Possible and likely are different claims.** `title_scenarios`
+   answers *can this still happen* with arithmetic — maximum points
+   remaining is a fact. `championship_projection` answers *how likely*
+   with a model. Never let one be printed as the other, and never let a
+   projection imply a driver is eliminated when the arithmetic says
+   otherwise.
+10. **Numbers carry their evidence.** `win_probabilities` returns the base
    rate window, sample size and per-driver reasoning. Keep that contract
    for any new estimate.
-10. **Models never calculate race facts.** Narration receives preformatted
+11. **Models never calculate race facts.** Narration receives preformatted
    structured facts. Every generated draft must pass the numeric and driver
    code whitelist; only verified exact matches may enter the local cache.
-11. **One catalogue, one dispatcher.** `_tools.py` is the only definition of
+12. **One catalogue, one dispatcher.** `_tools.py` is the only definition of
    the agent surface: the MCP server calls it and so does `f1verse.tools()`.
    Never hand-write a second tool list — schemas and behaviour cannot be
    allowed to drift. A new tool needs a `_SPECS` entry *and* a `_HANDLERS`
    entry; `tests/test_tools.py` enforces that they match.
-12. **Errors are read by machines.** A wrong tool name lists the real names,
+13. **Errors are read by machines.** A wrong tool name lists the real names,
    a missing argument names it, an unknown session lists the sessions that
    weekend had. An agent recovers from the message or not at all — never
    raise a bare `KeyError` from a public entry point.
 
-13. **An era's limits are stated, never implied.** `archive.py` covers
+14. **An era's limits are stated, never implied.** `archive.py` covers
    1996-2022, where lap times exist from 1996 and pit stops from 2011.
    Every return value carries a `coverage` block naming what that season
    actually holds. A field the era never recorded is absent with a reason,
    never defaulted to zero or estimated from something else — a fabricated
    stint is worse than a missing one.
-14. **Integer lap keys stay integers inside.** `jsonsafe` stringifies dict
+15. **Integer lap keys stay integers inside.** `jsonsafe` stringifies dict
    keys, and `"10"` sorts before `"2"`. Anything that iterates laps uses
    the private integer-keyed helper (`Race._order`, `ArchiveRace._order`);
    only the public wrapper passes through `jsonsafe`.
+16. **The library is consumer-blind.** f1verse has no knowledge of any
+   downstream application, sibling workspace, private dataset, brand, or
+   publishing pipeline. Features enter this repository only when they stand
+   alone for general Python or MCP users. Never inspect or import from outside
+   this checkout, hard-code a developer path, or shape a public API around one
+   unnamed consumer.
 
 ## Source behaviour worth knowing
 

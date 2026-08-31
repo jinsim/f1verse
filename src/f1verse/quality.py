@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Data quality — how complete, how old, how settled, and what changed.
 
 ``crosscheck`` answers *do independent sources agree*. That is a verdict,

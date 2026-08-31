@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """The bundled MCP server — JSON-RPC framing, offline.
 
 The transport is hand-rolled standard library, so the protocol details it

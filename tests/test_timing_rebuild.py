@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 jinsim <https://github.com/jinsim>
+
 """Lap reconstruction from the raw patch stream, offline."""
 from f1verse._clock import clock_seconds, lap_seconds, wall_time
 from f1verse.sources.timing import laps_from_stream
