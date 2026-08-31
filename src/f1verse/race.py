@@ -57,6 +57,106 @@ class Race(Session):
             runs[-1]["to"] = self.total_laps
         return runs
 
+    def running_order(self) -> dict:
+        """``{lap: [abbr, ...]}`` — who was where at the end of each lap.
+
+        Derived from when each car started its next lap, which is the only
+        ordering the lap feed actually witnesses. Cars that never started a
+        given lap are simply absent from it, so a retirement shortens the
+        list rather than freezing a ghost in place.
+        """
+        return jsonsafe(self._order())
+
+    def _order(self) -> dict:
+        """``running_order`` with integer lap keys, for internal use —
+        ``jsonsafe`` stringifies keys, and string keys sort ``"10"``
+        before ``"2"``."""
+        seen: dict = {}
+        for l in self.laps:
+            if l.get("date_start"):
+                seen.setdefault(l["lap_number"], []).append(
+                    (l["date_start"], l["driver_number"]))
+        return {ln: [self.abbr(n) for _, n in sorted(v)]
+                for ln, v in sorted(seen.items())}
+
+    def position_changes(self) -> list:
+        """Per lap, how much the order churned — and who moved.
+
+        ``moves`` counts drivers whose position differs from the previous
+        lap; ``biggest`` names the largest single gain. A lap where the
+        field simply strings out scores zero, so the peaks are the laps
+        worth watching: starts, restarts, and pit cycles.
+        """
+        order = self._order()
+        laps = sorted(order)
+        out = []
+        for prev, cur in zip(laps, laps[1:]):
+            a = {d: i for i, d in enumerate(order[prev])}
+            b = {d: i for i, d in enumerate(order[cur])}
+            moved = [(a[d] - b[d], d) for d in b if d in a and a[d] != b[d]]
+            if not moved:
+                out.append({"lap": cur, "moves": 0, "biggest": None})
+                continue
+            gain, who = max(moved)
+            out.append({
+                "lap": cur, "moves": len(moved),
+                "biggest": ({"abbr": who, "gained": gain,
+                             "from": a[who] + 1, "to": b[who] + 1}
+                            if gain > 0 else None)})
+        return jsonsafe(out)
+
+    def battles(self, within_s: float = 1.5, min_laps: int = 3) -> list:
+        """Pairs that ran nose-to-tail for a stretch.
+
+        Two cars are in a battle while they hold consecutive positions and
+        the car behind is within ``within_s``. Spells shorter than
+        ``min_laps`` are noise — a pit cycle putting two cars briefly
+        together is not a fight.
+        """
+        gaps: dict = {}
+        for l in self.laps:
+            if l.get("lap_duration"):
+                gaps.setdefault(l["driver_number"], {})[l["lap_number"]] = \
+                    l["lap_duration"]
+        cum: dict = {}
+        for num, per in gaps.items():
+            run = 0.0
+            for ln in sorted(per):
+                run += per[ln]
+                cum.setdefault(ln, {})[num] = run
+        order = self._order()
+        live: dict = {}
+        done = []
+        for ln in sorted(order):
+            here = set()
+            row = order[ln]
+            for i in range(len(row) - 1):
+                ahead, behind = row[i], row[i + 1]
+                na = next((n for n in self.drivers if self.abbr(n) == ahead),
+                          None)
+                nb = next((n for n in self.drivers if self.abbr(n) == behind),
+                          None)
+                ta, tb = cum.get(ln, {}).get(na), cum.get(ln, {}).get(nb)
+                if ta is None or tb is None or abs(tb - ta) > within_s:
+                    continue
+                key = (ahead, behind)
+                here.add(key)
+                live.setdefault(key, {"from": ln, "closest": abs(tb - ta)})
+                live[key]["to"] = ln
+                live[key]["closest"] = min(live[key]["closest"], abs(tb - ta))
+            for key in list(live):
+                if key not in here:
+                    b = live.pop(key)
+                    if b["to"] - b["from"] + 1 >= min_laps:
+                        done.append({"ahead": key[0], "behind": key[1], **b})
+        for key, b in live.items():
+            if b["to"] - b["from"] + 1 >= min_laps:
+                done.append({"ahead": key[0], "behind": key[1], **b})
+        for b in done:
+            b["laps"] = b["to"] - b["from"] + 1
+            b["closest"] = round(b["closest"], 3)
+        return jsonsafe(sorted(done, key=lambda x: -x["laps"]))
+
     def laps_led(self) -> dict:
         led = {}
         for r in self.leader_runs():

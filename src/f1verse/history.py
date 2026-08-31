@@ -103,3 +103,88 @@ def standings(year: int, kind: str = "driver") -> list:
                                    or who.get("name")),
                      "points": float(s["points"]), "wins": int(s["wins"])})
     return jsonsafe({"round": int(lists[0]["round"]), "standings": rows})
+
+
+def title_margins(first: int = 1958, last: int | None = None,
+                  top: int = 15) -> list:
+    """Every championship, ranked by how close it finished.
+
+    The margin is the points gap between first and second at the final
+    round — the one number that says whether a season went down to the
+    wire. Because points systems changed repeatedly, the gap is also
+    expressed relative to what a win was worth that year, which is the
+    only way seasons decades apart compare honestly: two points in 1958
+    is most of a win, two points in 2025 is a rounding error.
+
+    Seasons before 1958 are excluded by default — the constructors' title
+    did not exist and shared drives make second place ambiguous.
+    """
+    from datetime import datetime, timezone
+    last = last or datetime.now(timezone.utc).year
+    rows = []
+    for year in range(first, last + 1):
+        try:
+            table = standings(year, "driver")
+        except Exception:
+            continue
+        board = (table or {}).get("standings") or []
+        if len(board) < 2:
+            continue
+        champ, runner = board[0], board[1]
+        win_value = 8 if year < 1961 else 9 if year < 1991 else \
+            10 if year < 2010 else 25
+        margin = round(champ["points"] - runner["points"], 2)
+        rows.append({
+            "year": year, "rounds": table.get("round"),
+            "champion": champ["name"], "champion_points": champ["points"],
+            "runner_up": runner["name"], "runner_up_points": runner["points"],
+            "margin": margin,
+            "margin_in_wins": round(margin / win_value, 3),
+            "win_worth": win_value,
+        })
+    rows.sort(key=lambda r: (r["margin_in_wins"], r["margin"]))
+    return jsonsafe(rows[:top])
+
+
+def season_shape(year: int, top_n: int = 5) -> dict:
+    """How a championship actually unfolded, round by round.
+
+    Returns each contender's running total, who led after every round, and
+    the rounds where the lead changed hands. A season with one long
+    procession and one with three lead changes can finish on the same
+    margin; this is what tells them apart.
+    """
+    series: dict = {}
+    leaders, rounds = [], []
+    for rnd in range(1, 30):
+        try:
+            d = jolpica.get(f"{year}/{rnd}/driverStandings")
+        except Exception:
+            break
+        lists = d["StandingsTable"]["StandingsLists"]
+        if not lists:
+            break
+        rounds.append(rnd)
+        board = lists[0]["DriverStandings"]
+        for s in board:
+            who = s["Driver"].get("code") or s["Driver"]["familyName"][:3].upper()
+            series.setdefault(who, {})[rnd] = float(s["points"])
+        top = board[0]
+        leaders.append(top["Driver"].get("code")
+                       or top["Driver"]["familyName"][:3].upper())
+    if not rounds:
+        return jsonsafe({"year": year, "rounds": 0, "contenders": []})
+    final = {who: pts.get(rounds[-1], 0.0) for who, pts in series.items()}
+    keep = sorted(final, key=lambda w: -final[w])[:top_n]
+    changes = [{"round": rounds[i], "from": leaders[i - 1], "to": leaders[i]}
+               for i in range(1, len(leaders)) if leaders[i] != leaders[i - 1]]
+    return jsonsafe({
+        "year": year, "rounds": len(rounds),
+        "contenders": [{"abbr": w,
+                        "points": [series[w].get(r, 0.0) for r in rounds]}
+                       for w in keep],
+        "leader_by_round": leaders,
+        "lead_changes": changes,
+        "final_margin": (round(final[keep[0]] - final[keep[1]], 2)
+                         if len(keep) > 1 else None),
+    })

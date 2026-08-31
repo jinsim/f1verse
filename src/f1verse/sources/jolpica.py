@@ -49,3 +49,45 @@ def paged(path: str, table: str, key: str, page: int = 100,
           ttl: float | None = "auto", max_pages: int = 100) -> list:
     """Collect :func:`iter_paged` into a list."""
     return list(iter_paged(path, table, key, page, ttl, max_pages))
+
+
+def race_rows(path: str, key: str, page: int = 100,
+              max_pages: int = 60) -> list:
+    """Rows from an endpoint that paginates *inside* a single race.
+
+    ``laps`` and ``pitstops`` return one race whose inner list is the thing
+    being paged, so the generic :func:`paged` — which counts races — walks
+    forever without making progress. This walks the inner list instead and
+    stops on the reported total.
+    """
+    out, offset = [], 0
+    for _ in range(max_pages):
+        d = get(path, limit=page, offset=offset)
+        races = d["RaceTable"]["Races"]
+        rows = races[0].get(key, []) if races else []
+        if not rows:
+            break
+        out += rows
+        offset += page
+        if offset >= int(d.get("total", 0)):
+            break
+    return out
+
+
+def lap_timings(year: int, rnd: int) -> list:
+    """Every lap of a race as ``[{"lap": n, "timings": [...]}, ...]``.
+
+    Available from 1996. Each timing carries ``driverId``, ``position`` and
+    ``time``, so both the running order and the lap times come from one
+    fetch.
+    """
+    return [{"lap": int(l["number"]), "timings": l["Timings"]}
+            for l in race_rows(f"{year}/{rnd}/laps", "Laps")]
+
+
+def pit_stops(year: int, rnd: int) -> list:
+    """Pit stops for a race. Available from 2011."""
+    return [{"driver_id": p["driverId"], "lap": int(p["lap"]),
+             "stop": int(p["stop"]), "time": p.get("time"),
+             "duration_s": float(p["duration"]) if p.get("duration") else None}
+            for p in race_rows(f"{year}/{rnd}/pitstops", "PitStops")]

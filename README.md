@@ -15,8 +15,10 @@
 f1verse tells you *what happened*: lead changes, laps led, event timelines,
 stint strategy, race pace, and a live championship projection.
 
-**Zero dependencies.** Standard library only. Seasons 2023 onward;
-historic records reach back to 1950.
+**Zero dependencies.** Standard library only. Full live-timing coverage from
+2023; lap-by-lap racing back to 1996, pit stops to 2011, and results,
+qualifying and standings to 1950 — each answer stating which era it came
+from and what that era does not hold.
 
 ```bash
 pip install f1verse
@@ -128,6 +130,79 @@ f1verse.vintage(rec)              # superseded body when it was small enough
 There is deliberately no `as_of=` time travel: f1verse can tell you what
 it sees now and when it saw a value change, not reconstruct a value
 nobody here ever fetched.
+
+### How the race actually unfolded
+
+```python
+race = f1verse.load(2025, 24)
+
+race.running_order()[30]
+# ['PIA', 'VER', 'NOR', 'LEC', 'RUS', ...]   who was where, lap by lap
+
+race.position_changes()[1]
+# {'lap': 2, 'moves': 18, 'biggest': {'abbr': 'PIA', 'gained': 17,
+#                                     'from': 19, 'to': 2}}
+
+race.battles()[0]
+# {'ahead': 'HAD', 'behind': 'OCO', 'from': 2, 'to': 14, 'laps': 13,
+#  'closest': 0.529}      <- a thirteen-lap fight the results table hides
+```
+
+`battles` finds pairs that held consecutive positions within 1.5 s for at
+least three laps. A scrap for eighth that ran a third of the race never
+shows up in a classification; it is often the best part of the afternoon.
+
+### Races from before the live feeds
+
+```python
+old = f1verse.load_archive(2008, 18)     # Brazil, the last-corner title
+
+old.coverage
+# {'lap_times': True, 'pit_stops': False, 'stints': False,
+#  'note': 'lap times only'}
+
+old.leader_runs()
+# [{'abbr': 'MAS', 'from': 1, 'to': 9}, {'abbr': 'TRU', 'from': 10, 'to': 11},
+#  {'abbr': 'MAS', 'from': 12, 'to': 38}, ...]
+
+old.laps_led()          # {'MAS': 64, 'TRU': 2, 'ALO': 2, 'RAI': 3}
+```
+
+The `coverage` block is not decoration. 2008 has no stint data anywhere, so
+`ArchiveRace` has no `stints()` — rather than returning an empty dict that
+reads like "no pit stops happened". What the era recorded, you get; what it
+did not, it says.
+
+### Seasons against each other
+
+```python
+f1verse.season_shape(2025)
+# {'rounds': 24, 'final_margin': 2.0,
+#  'lead_changes': [{'round': 5, 'from': 'NOR', 'to': 'PIA'},
+#                   {'round': 20, 'from': 'PIA', 'to': 'NOR'}], ...}
+
+f1verse.title_margins(top=5)
+# 2025  NOR 423.0 vs VER 421.0   margin 2.0   (0.08 of a win)
+# 2008  HAM  98.0 vs MAS  97.0   margin 1.0   (0.10 of a win)
+# 2012  VET 281.0 vs ALO 278.0   margin 3.0   (0.12 of a win)
+```
+
+Points systems changed repeatedly, so a raw margin cannot compare eras — one
+point in 1958 was most of a win. Every row also carries the gap measured in
+wins, which is the comparison that survives the rule changes.
+
+### Where the passing happened
+
+```python
+f1verse.overtake_hotspots(race)[0]
+# {'from_s': 3510.0, 'to_s': 3540.0, 'signals': 69, 'drivers': [...]}
+```
+
+The timing feed publishes an `OvertakeState` per car that almost never
+changes — about a hundred transitions in nineteen thousand records. That
+sparsity is the value: the transitions are a free index of the moments worth
+looking at, from the same feed that times the race. Read it as "something
+happened here", then confirm against `running_order`.
 
 ### Beyond a single race
 

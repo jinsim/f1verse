@@ -18,6 +18,22 @@ def _gap_at(race, drv_num, lap):
     return sum(l["lap_duration"] for l in laps) if laps else None
 
 
+def circuit_pit_loss(race) -> dict:
+    """Seconds a stop costs at this circuit, split by track state.
+
+    A stop under a safety car is cheap because the field is crawling; the
+    same stop at racing speed is not. The undercut verdicts below use the
+    ``normal`` figure as their yardstick, and report it, so the reader can
+    see what "gained 2.1 s" was measured against.
+    """
+    try:
+        from .circuit import profile
+        loss = profile(race.year, race.round, history=False)["pit_loss_s"]
+    except Exception:
+        return {}
+    return {k: round(float(v), 3) for k, v in (loss or {}).items()}
+
+
 def pit_exchanges(race, pit_loss_s: float | None = None,
                   window: int = 4) -> list:
     """Every genuine undercut attempt, with a verdict.
@@ -32,6 +48,8 @@ def pit_exchanges(race, pit_loss_s: float | None = None,
     and stops where the rival responded on the same lap, which is a
     covering stop rather than an undercut.
     """
+    if pit_loss_s is None:
+        pit_loss_s = circuit_pit_loss(race).get("normal")
     neutralised = {l for a, b in race.interruptions()["sc_vsc_bands"]
                    for l in range(a, b + 2)}
     neutralised |= {l for r in race.interruptions()["red_flag_laps"]
@@ -83,6 +101,9 @@ def pit_exchanges(race, pit_loss_s: float | None = None,
             "verdict": "worked" if gain > 0.5 else
                        "failed" if gain < -0.5 else "neutral",
             "pit_loss_reference_s": pit_loss_s,
+            # what the move recovered, as a share of the stop it cost
+            "share_of_pit_loss": (round(gain / pit_loss_s, 3)
+                                  if pit_loss_s else None),
         })
     return jsonsafe(sorted(out, key=lambda e: e["lap"]))
 

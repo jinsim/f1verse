@@ -3,6 +3,75 @@
 Versions follow [semantic versioning](https://semver.org). Published
 releases are immutable; a fix ships as a new patch version.
 
+## 0.12.0
+
+**The library stops pretending F1 began in 2023, and learns to read a race
+lap by lap.**
+
+### Twenty-seven more seasons
+
+- **`archive.py`.** `load_archive(2008, 18)` returns the 2008 Brazilian Grand
+  Prix — results, lap-by-lap running order, lead changes, laps led — for the
+  seasons the live-timing feeds never covered. Lap times reach back to 1996
+  and pit stops to 2011, which is what the historic record actually holds;
+  the 2023 boundary was a property of one source, not of the sport.
+- **Coverage is stated, not implied.** Every return value carries a `coverage`
+  block naming what that era holds. 2008 has no stint data anywhere, so
+  `ArchiveRace` has no `stints()` at all rather than an empty dict that reads
+  like "nobody pitted". A fabricated stint is worse than a missing one.
+- **`jolpica.race_rows`, `lap_timings`, `pit_stops`.** Jolpica's `laps` and
+  `pitstops` paginate *inside* a single race, so the generic pager — which
+  counts races — walked forever and tripped its own guard. These walk the
+  inner list instead.
+
+### How a race unfolded
+
+- **`Race.running_order`.** Who was where at the end of every lap, from the
+  only ordering the lap feed actually witnesses. A retirement shortens the
+  list rather than freezing a ghost in place.
+- **`Race.position_changes`.** Per lap, how much the order churned and who
+  made the largest single gain. Laps where the field simply strings out score
+  zero, so the peaks are the laps worth watching.
+- **`Race.battles`.** Pairs that held consecutive positions within 1.5 s for
+  at least three laps, with the closest the gap got. A scrap for eighth that
+  ran a third of the race never appears in a classification; it is often the
+  best part of the afternoon.
+
+### Seasons against each other
+
+- **`title_margins`.** Championships ranked by how close they finished — in
+  points, and relative to what a win was worth that season. Points systems
+  changed repeatedly, so a raw margin cannot compare eras: one point in 1958
+  was most of a win, and two points today is not.
+- **`season_shape`.** Each contender's running total, who led after every
+  round, and where the lead changed hands. Two seasons can end on the same
+  margin and look nothing alike.
+
+### Undercuts against a real yardstick
+
+- **`circuit_pit_loss`** is now wired into `pit_exchanges`, which had been
+  reporting `pit_loss_reference_s: null` while the parser for it already
+  existed. Verdicts carry `share_of_pit_loss`, so "gained 2.1 s" is read
+  against the ~23 s the stop cost — and the safety-car and VSC figures are
+  there for why a neutralised stop is cheap.
+
+### The feed's own passing signals
+
+- **`overtake_signals`, `overtake_hotspots`.** `DriverRaceInfo` publishes an
+  `OvertakeState` per car that barely ever changes — about a hundred
+  transitions in nineteen thousand records. That sparsity is the value: the
+  transitions are a free index of the moments worth looking at, independent
+  of any passing logic of our own. Read as "something happened here", not as
+  a completed pass.
+
+### Also
+
+- Six new agent tools: `f1_running_order`, `f1_battles`, `f1_archive_race`,
+  `f1_closest_titles`, `f1_season_shape`, `f1_highlights` — sixteen in all.
+- Two invariants added to `AGENTS.md`: an era's limits are stated and never
+  estimated, and lap keys stay integers internally (`jsonsafe` stringifies
+  them, and `"10"` sorts before `"2"`).
+
 ## 0.11.1
 
 The MCP registry verifies that whoever publishes a listing also owns the

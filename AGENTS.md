@@ -22,23 +22,24 @@ of public data sources.
 | `sources/timing.py` | lap tables rebuilt from the raw timing patch stream (grace window, credibility ceiling, blank-vs-unknown, earliest-witness lap ends) | `laps_from_stream` |
 | `sources/liveclient.py` | live SignalR feed over a stdlib WebSocket; stamped recorder and replay | `LiveFeed`, `decode`, `record`, `replay`, `run` |
 | `_clock.py` | wire-format clock/lap/wall-time parsing, every feed shape | `clock_seconds`, `lap_seconds`, `wall_time` |
-| `sources/jolpica.py` | historic results, 1950→now | `get`, `paged` |
+| `sources/jolpica.py` | historic results, 1950→now; lap times 1996+, pit stops 2011+ | `get`, `paged`, `race_rows`, `lap_timings`, `pit_stops` |
 | `sources/multiviewer.py` | circuit geometry | `circuit` |
 | `session.py` | **`Session` base** — any session of a weekend; per-kind classification | `Session`, `Qualifying`, `Practice` |
-| `race.py` | **native `Race` object** — the main entry | `load(year, round)`, `load_session`, `sessions`, `Race.story()` |
+| `race.py` | **native `Race` object** — the main entry; lap-by-lap order, churn, battles | `load(year, round)`, `load_session`, `sessions`, `Race.story()`, `running_order`, `position_changes`, `battles` |
+| `archive.py` | **pre-2023 races** — 1996+ lap times, 2011+ pit stops, with an explicit `coverage` block | `load_archive(year, round)`, `coverage`, `ArchiveRace.story()` |
 | `quality.py` | completeness, source age, lifecycle, corrections, steward lap deletions | `quality_report`, `snapshot`, `diff`, `lap_deletions` |
 | `gaps.py` | broadcast gap convention; provenance-preserving gap series | `format_gap`, `reconcile` |
 | `crosscheck.py` | publish gating across independent sources | `crosscheck(race)` |
-| `history.py` | careers, milestones, circuit records, standings | `career`, `milestones`, `circuit_history`, `standings` |
+| `history.py` | careers, milestones, circuit records, standings, cross-season rankings | `career`, `milestones`, `circuit_history`, `standings`, `title_margins`, `season_shape` |
 | `circuit.py` | geometry + history in one profile | `profile(year, round)` |
 | `teammates.py` | teammate head-to-head scores | `head_to_head(year)` |
 | `predict.py` | win probabilities from measured base rates; seeded strategy rollouts | `win_probabilities`, `grid_base_rates`, `strategy_rollout` |
-| `strategy.py` | undercut/overcut verdicts; fuel-normalised tyre life and outlook | `pit_exchanges(race)`, `stint_degradation`, `circuit_abrasion`, `fuel_normalised`, `tyre_outlook` |
+| `strategy.py` | undercut/overcut verdicts against real pit loss; fuel-normalised tyre life and outlook | `pit_exchanges(race)`, `circuit_pit_loss`, `stint_degradation`, `circuit_abrasion`, `fuel_normalised`, `tyre_outlook` |
 | `telemetry.py` | car data and track position, per lap | `lap_telemetry`, `lap_trace`, `top_speeds` |
 | `weather.py` | session conditions | `readings`, `summary` |
 | `narration.py` | structured fact sheet, deterministic brief, verified optional generation | `race_facts`, `brief`, `narrate`, `verify` |
 | `fia.py` | FIA decision-document index | `documents`, `power_unit_documents` |
-| `feeds.py` | additional live-timing feeds | `championship_prediction`, `team_radio`, `timing_stats` |
+| `feeds.py` | additional live-timing feeds; the feed's own passing signals | `championship_prediction`, `team_radio`, `timing_stats`, `overtake_signals`, `overtake_hotspots` |
 | `_json.py` | everything public passes through here | `jsonsafe` |
 | `_tools.py` | agent tool catalogue — one source for schemas and dispatch | `catalog`, `call` (exported as `tools`, `call_tool`) |
 | `mcp.py` | MCP server: stdlib JSON-RPC 2.0 over stdio, `f1verse-mcp` | `handle`, `serve`, `main` |
@@ -90,6 +91,17 @@ of public data sources.
    weekend had. An agent recovers from the message or not at all — never
    raise a bare `KeyError` from a public entry point.
 
+13. **An era's limits are stated, never implied.** `archive.py` covers
+   1996-2022, where lap times exist from 1996 and pit stops from 2011.
+   Every return value carries a `coverage` block naming what that season
+   actually holds. A field the era never recorded is absent with a reason,
+   never defaulted to zero or estimated from something else — a fabricated
+   stint is worse than a missing one.
+14. **Integer lap keys stay integers inside.** `jsonsafe` stringifies dict
+   keys, and `"10"` sorts before `"2"`. Anything that iterates laps uses
+   the private integer-keyed helper (`Race._order`, `ArchiveRace._order`);
+   only the public wrapper passes through `jsonsafe`.
+
 ## Source behaviour worth knowing
 
 - Classified time values are **not comparable for lapped cars** — a
@@ -123,6 +135,18 @@ of public data sources.
   always bound the window and filter server-side.
 - `.jsonStream` files are BOM-prefixed and send one snapshot
   followed by partial patches — merge with `deepmerge`.
+
+- Jolpica's `laps` and `pitstops` paginate **inside a single race**, so the
+  generic `paged` helper (which counts races) never makes progress and
+  trips its own guard. Use `jolpica.race_rows` / `lap_timings` / `pit_stops`.
+- `DriverRaceInfo.jsonStream` carries `OvertakeState` per car. It barely
+  ever changes — a race of ~19,000 records turns over about a hundred
+  times — which is exactly what makes the transitions a usable highlight
+  index. The static `.json` is only the final snapshot and is useless for
+  this; the stream is required.
+- Points systems changed repeatedly, so raw title margins do not compare
+  across eras. `title_margins` also reports the gap relative to what a win
+  was worth that season.
 
 ## Operating
 

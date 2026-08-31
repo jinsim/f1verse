@@ -119,3 +119,35 @@ def test_strategy_rollout_is_seeded_and_sane():
     # fifty laps of soft degradation dwarfs one pit loss
     assert shares["one-stop hard"] > shares["no-stop soft"]
     assert a["assumptions"]["seed"] == 7
+
+
+def test_pit_loss_share_is_reported_when_a_yardstick_exists():
+    from f1verse.strategy import pit_exchanges
+
+    class _R(_StubRace):
+        pits = [{"driver_number": 1, "lap_number": 10},
+                {"driver_number": 2, "lap_number": 12}]
+
+        def __init__(self):
+            super().__init__()
+            self.pits = _R.pits
+            self.laps = [
+                {"driver_number": n, "lap_number": l, "lap_duration": 90.0,
+                 "date_start": f"2026-01-01T00:{l:02d}:{n:02d}+00:00"}
+                for n in (1, 2) for l in range(1, 20)]
+
+        def abbr(self, num):
+            return {1: "AAA", 2: "BBB"}[num]
+
+    # an explicit yardstick is used verbatim and turned into a share
+    rows = pit_exchanges(_R(), pit_loss_s=20.0)
+    for r in rows:
+        assert r["pit_loss_reference_s"] == 20.0
+        assert r["share_of_pit_loss"] == round(r["gain_s"] / 20.0, 3)
+
+
+def test_title_margin_normalises_across_points_eras():
+    from f1verse.history import title_margins
+    # pure arithmetic check on the era weighting, no network:
+    # 2 points in 2025 (win = 25) must rank closer than 2 in 1960 (win = 8)
+    assert 2 / 25 < 2 / 8

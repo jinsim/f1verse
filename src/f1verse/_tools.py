@@ -142,8 +142,76 @@ _SPECS = [
         "params": {"year": _YEAR, "round": _ROUND, "session": _SESSION},
         "required": ["year", "round"],
     },
+    {
+        "name": "f1_running_order",
+        "summary": "Who was where at the end of every lap.",
+        "description": (
+            "The order on track lap by lap, plus how much each lap churned "
+            "and who made the biggest single gain. This is the data behind "
+            "any position-change chart; use it for 'how did the race "
+            "unfold' rather than fetching results and guessing."),
+        "params": {"year": _YEAR, "round": _ROUND},
+        "required": ["year", "round"],
+    },
+    {
+        "name": "f1_battles",
+        "summary": "Pairs that ran nose-to-tail, and for how long.",
+        "description": (
+            "Every stretch where two cars held consecutive positions within "
+            "1.5 seconds for at least three laps, with the closest the gap "
+            "got. Finds the fights a results table hides — a scrap for "
+            "eighth that ran twenty laps never shows up in the standings."),
+        "params": {"year": _YEAR, "round": _ROUND},
+        "required": ["year", "round"],
+    },
+    {
+        "name": "f1_archive_race",
+        "summary": "A race from 1996-2022, before the live-timing feeds.",
+        "description": (
+            "Results, lap-by-lap running order, lead changes and laps led "
+            "for the seasons the modern feeds do not cover. Pit stops are "
+            "included from 2011. The reply carries a 'coverage' block "
+            "naming exactly what that era does and does not hold, so an "
+            "absent field is never mistaken for a zero. Use f1_race_story "
+            "for 2023 onward — it knows strictly more."),
+        "params": {"year": _YEAR, "round": _ROUND},
+        "required": ["year", "round"],
+    },
+    {
+        "name": "f1_closest_titles",
+        "summary": "Championships ranked by how close they finished.",
+        "description": (
+            "The smallest title margins in history, measured both in points "
+            "and relative to what a win was worth that season — the only "
+            "way seasons decades apart compare honestly, since two points "
+            "in 1958 is most of a win and two points today is not."),
+        "params": {"top": {"type": "integer",
+                           "description": "How many seasons to return."}},
+        "required": [],
+    },
+    {
+        "name": "f1_season_shape",
+        "summary": "How a championship unfolded, round by round.",
+        "description": (
+            "Each contender's running points total, who led after every "
+            "round, and where the lead changed hands. Two seasons can end "
+            "on the same margin and look nothing alike; this is what tells "
+            "a procession from a fight."),
+        "params": {"year": _YEAR},
+        "required": ["year"],
+    },
+    {
+        "name": "f1_highlights",
+        "summary": "The stretches of a race worth watching.",
+        "description": (
+            "Windows where the timing feed's own passing signals cluster, "
+            "ranked by density. An editing index rather than a verdict — "
+            "it says where cars were changing state, not that a pass "
+            "completed. 2023 onward."),
+        "params": {"year": _YEAR, "round": _ROUND},
+        "required": ["year", "round"],
+    },
 ]
-
 
 def _story(year, round, **_):
     from .race import load
@@ -204,6 +272,39 @@ def _deletions(year, round, session="Race", **_):
     return {"session": s.name, "deletions": lap_deletions(s.race_control)}
 
 
+def _running_order(year, round, **_):
+    from .race import load
+    race = load(year, round)
+    return {"total_laps": race.total_laps, "order": race.running_order(),
+            "position_changes": race.position_changes()}
+
+
+def _battles(year, round, **_):
+    from .race import load
+    return {"battles": load(year, round).battles()}
+
+
+def _archive_race(year, round, **_):
+    from .archive import load_archive
+    return load_archive(year, round).story()
+
+
+def _title_margins(top=15, **_):
+    from .history import title_margins
+    return {"closest_titles": title_margins(top=int(top))}
+
+
+def _season_shape(year, **_):
+    from .history import season_shape
+    return season_shape(year)
+
+
+def _highlights(year, round, **_):
+    from .feeds import overtake_hotspots
+    from .race import load
+    return {"hotspots": overtake_hotspots(load(year, round))[:10]}
+
+
 _HANDLERS = {
     "f1_race_story": _story,
     "f1_race_brief": _brief,
@@ -215,6 +316,12 @@ _HANDLERS = {
     "f1_data_quality": _quality,
     "f1_tyre_wear": _tyres,
     "f1_deleted_laps": _deletions,
+    "f1_running_order": _running_order,
+    "f1_battles": _battles,
+    "f1_archive_race": _archive_race,
+    "f1_closest_titles": _title_margins,
+    "f1_season_shape": _season_shape,
+    "f1_highlights": _highlights,
 }
 
 NAMES = tuple(spec["name"] for spec in _SPECS)

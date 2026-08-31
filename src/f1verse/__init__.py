@@ -15,12 +15,15 @@ to 1950.
 from . import http
 from ._version import __version__
 from ._json import jsonsafe
-from .feeds import championship_prediction, team_radio, timing_stats
+from .archive import ArchiveRace, coverage as era_coverage, load_archive
+from .feeds import (championship_prediction, overtake_hotspots,
+                    overtake_signals, team_radio, timing_stats)
 from .gaps import format_gap, reconcile as reconcile_gaps
 from .circuit import profile as circuit_profile
 from .crosscheck import crosscheck
 from .fia import documents as fia_documents, power_unit_documents
-from .history import career, circuit_history, milestones, standings
+from .history import (career, circuit_history, milestones, season_shape,
+                      standings, title_margins)
 from .session import SCHEMA_VERSION, Practice, Qualifying, Session
 from .race import Race, load, load_session, sessions
 from .quality import diff, lap_deletions, quality_report, snapshot
@@ -31,7 +34,8 @@ from .narration import (brief, narrate, prompt as narration_prompt,
                         race_facts, unsupported_numbers, verify)
 from .predict import (grid_base_rates, recent_form, strategy_rollout,
                       win_probabilities)
-from .strategy import (circuit_abrasion, fuel_normalised, pit_exchanges,
+from .strategy import (circuit_abrasion, circuit_pit_loss, fuel_normalised,
+                       pit_exchanges,
                        stint_degradation, tyre_outlook)
 from .teammates import head_to_head
 from ._tools import catalog as tools, call as call_tool
