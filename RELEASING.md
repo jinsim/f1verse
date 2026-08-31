@@ -15,9 +15,11 @@ No API token is stored in GitHub.
 
 ## Every release
 
-1. Choose the next semantic version and update only
-   `src/f1verse/_version.py`. Build metadata, `f1verse.__version__`, and the
-   HTTP user agent all read that one value.
+1. Choose the next semantic version and update
+   `src/f1verse/_version.py` **and the two `version` fields in
+   `server.json`**. Build metadata, `f1verse.__version__` and the HTTP user
+   agent all read `_version.py`; the MCP registry manifest cannot read it,
+   so `tests/test_docs.py` fails the moment the two disagree.
 2. Update user-facing documentation and commit the release.
 3. Confirm the `test` workflow is green on `main`.
 4. Create and push one annotated tag:
@@ -31,6 +33,11 @@ The tag workflow repeats the tests on Python 3.9 and 3.12, verifies that the
 tag exactly matches `src/f1verse/_version.py`, builds both distributions, publishes to
 PyPI through OIDC, and creates the matching GitHub Release. If any step fails,
 PyPI publication does not run.
+
+`mcp-registry.yml` then runs on its own, updating the listing in the official
+MCP registry — also through OIDC, also with nothing stored. It waits for the
+publish workflow to succeed, because a registry entry pointing at a version
+PyPI cannot serve is worse than no entry. There is nothing to do by hand.
 
 Published PyPI versions and release tags are immutable. Fixes therefore use a
 new patch version rather than replacing an existing release.

@@ -34,6 +34,12 @@ def test_server_json_tracks_the_package_version():
     assert package["transport"]["type"] == "stdio"
 
 
+def test_server_json_description_fits_the_registry_limit():
+    """The registry rejects a publish over 100 characters, at release time."""
+    manifest = json.loads((ROOT / "server.json").read_text())
+    assert len(manifest["description"]) <= 100
+
+
 def test_every_page_leads_with_its_answer():
     for page in build_docs.ALL:
         assert page.question.endswith("?"), page.slug
