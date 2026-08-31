@@ -1,0 +1,48 @@
+# Publish the MCP server listing to the official registry.
+# Authentication is GitHub Actions OIDC — no token, no browser, nothing stored,
+# the same trust model as PyPI publishing in publish.yml. The OIDC identity
+# grants the `io.github.jinsim/*` namespace, which is why server.json is named
+# `io.github.jinsim/f1verse`.
+#
+# Runs on a version tag, after the package is on PyPI: a registry entry whose
+# package cannot be installed is worse than no entry. Can also be run by hand
+# from the Actions tab.
+name: mcp-registry
+on:
+  workflow_run:
+    workflows: [publish]
+    types: [completed]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    # Only after a successful release, never after a failed one.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify server.json matches the package version
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          namespace = {}
+          exec(pathlib.Path("src/f1verse/_version.py").read_text(), namespace)
+          version = namespace["__version__"]
+          manifest = json.loads(pathlib.Path("server.json").read_text())
+          advertised = {manifest["version"]} | {p["version"] for p in manifest["packages"]}
+          if advertised != {version}:
+              raise SystemExit(
+                  f"server.json advertises {sorted(advertised)}, package is {version}")
+          PY
+      - name: Install mcp-publisher
+        run: |
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+      - name: Authenticate through OIDC
+        run: ./mcp-publisher login github-oidc
+      - name: Publish
+        run: ./mcp-publisher publish
