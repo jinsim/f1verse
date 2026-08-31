@@ -6,6 +6,8 @@ layer that live timing cannot provide.
 
 Backed by Jolpica (Ergast successor, 1950 → today).
 """
+from __future__ import annotations
+
 from collections import Counter
 
 from ._json import jsonsafe

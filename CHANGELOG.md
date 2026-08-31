@@ -3,6 +3,14 @@
 Versions follow [semantic versioning](https://semver.org). Published
 releases are immutable; a fix ships as a new patch version.
 
+## 0.13.1
+
+### Fixed
+
+- **Python 3.9 compatibility.** Postpone evaluation of the historical-title
+  type annotations, matching the declared Python support floor and the rest of
+  the package.
+
 ## 0.13.0
 
 **The library learns to answer "who wins the title" — and, separately,
