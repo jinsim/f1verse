@@ -34,6 +34,17 @@ def test_server_json_tracks_the_package_version():
     assert package["transport"]["type"] == "stdio"
 
 
+def test_readme_carries_the_registry_ownership_marker():
+    """The registry proves package ownership through the README PyPI serves.
+
+    A published README cannot be edited, so a missing marker is only fixable
+    by cutting another release — worth failing here instead.
+    """
+    manifest = json.loads((ROOT / "server.json").read_text())
+    readme = (ROOT / "README.md").read_text()
+    assert f"mcp-name: {manifest['name']}" in readme
+
+
 def test_server_json_description_fits_the_registry_limit():
     """The registry rejects a publish over 100 characters, at release time."""
     manifest = json.loads((ROOT / "server.json").read_text())

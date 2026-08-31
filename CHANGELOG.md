@@ -3,6 +3,14 @@
 Versions follow [semantic versioning](https://semver.org). Published
 releases are immutable; a fix ships as a new patch version.
 
+## 0.11.1
+
+The MCP registry verifies that whoever publishes a listing also owns the
+package it points at, by looking for an ownership marker in the README as
+PyPI serves it. A published README is immutable, so carrying that marker
+takes a release of its own. `tests/test_docs.py` now holds the marker to
+the name in `server.json`.
+
 ## 0.11.0
 
 **f1verse is now callable by agents, not only by people — and it reaches the

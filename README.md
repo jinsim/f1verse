@@ -39,6 +39,8 @@ race.team_radio()                # timestamped clip URLs (nothing downloaded)
 
 ### Give it to an AI agent
 
+<!-- mcp-name: io.github.jinsim/f1verse -->
+
 f1verse ships its own MCP server. No install step, no dependencies:
 
 ```json
