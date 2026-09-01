@@ -1,0 +1,393 @@
+{
+  "_readme": [
+    "Published circuit facts. Facts only — a length, a count, a race",
+    "distance — each carrying the source it was read from and the date it",
+    "was checked.",
+    "",
+    "Curate from the official circuit page for the event",
+    "(formula1.com/en/racing/<year>/<slug>/circuit), which is authoritative",
+    "for length, race laps and race distance. It does not publish corner",
+    "counts, and its URL slug cannot be derived from a country (three races",
+    "share the United States), which is why this is a human curation step",
+    "rather than a runtime source.",
+    "",
+    "Secondary reports are not sources. A widely repeated figure can simply",
+    "be wrong: Madrid circulated as 5474 m and is officially 5416 m, and",
+    "Singapore circulates as 4928 and 4940 m against an official 4927 m.",
+    "Where references disagree and no official figure exists, leave the",
+    "field out — reference.audit() then reports it unchecked instead of",
+    "agreed, and the telemetry measurement is free to cast a vote.",
+    "",
+    "Never add an entry from memory. An unchecked circuit must be absent:",
+    "reference.facts() returning None says 'nobody has looked', which is a",
+    "different and more useful statement than a plausible wrong number.",
+    "Wikidata (CC0) fills the fields no curated entry covers."
+  ],
+  "_schema": {
+    "length_m": "published lap length in metres",
+    "corners": "numbered corners on the current layout",
+    "direction": "clockwise | anticlockwise",
+    "layout_since": "year this layout came into use, if known",
+    "notes": "anything a consumer would otherwise get wrong",
+    "source": "where the figures were read",
+    "checked": "ISO date the entry was last verified",
+    "race_laps": "scheduled race laps",
+    "race_distance_km": "scheduled race distance",
+    "aliases": "other names this circuit is known by upstream",
+    "f1_slug": "the official site's URL slug for the event",
+    "first_grand_prix": "year of the first championship race here",
+    "circuit_type": "Permanent, Temporary - Street or Temporary - Road",
+    "held_in": "where the race is actually run, which is not always the country the event is named for",
+    "circuit_official_name": "the circuit's full official name"
+  },
+  "circuits": {
+    "Austin": {
+      "length_m": 5513,
+      "race_laps": 56,
+      "race_distance_km": 308.405,
+      "first_grand_prix": 2012,
+      "circuit_official_name": "Circuit of The Americas",
+      "circuit_type": "Permanent",
+      "held_in": "Austin",
+      "aliases": [
+        "Americas"
+      ],
+      "f1_slug": "united-states",
+      "source": "formula1.com official circuit page, 2026 united-states (season 2026)",
+      "checked": "2026-09-01"
+    },
+    "Baku": {
+      "length_m": 6003,
+      "race_laps": 51,
+      "race_distance_km": 306.049,
+      "first_grand_prix": 2016,
+      "circuit_official_name": "Baku City Circuit",
+      "circuit_type": "Temporary - Street",
+      "held_in": "Baku",
+      "f1_slug": "azerbaijan",
+      "source": "formula1.com official circuit page, 2026 azerbaijan (season 2026)",
+      "checked": "2026-09-01"
+    },
+    "Catalunya": {
+      "length_m": 4657,
+      "race_laps": 66,
+      "race_distance_km": 307.236,
+      "first_grand_prix": 1991,
+      "circuit_official_name": "Circuit de Barcelona-Catalunya",
+      "circuit_type": "Permanent",
+      "held_in": "Barcelona",
+      "f1_slug": "barcelona-catalunya",
+      "source": "formula1.com official circuit page, 2026 barcelona-catalunya (season 2026)",
+      "checked": "2026-09-01"
+    },
+    "Hungaroring": {
+      "length_m": 4381,
+      "race_laps": 70,
+      "race_distance_km": 306.63,
+      "first_grand_prix": 1986,
+      "circuit_official_name": "Hungaroring",
+      "circuit_type": "Permanent",
+      "held_in": "Budapest",
+      "f1_slug": "hungary",
+      "source": "formula1.com official circuit page, 2026 hungary (season 2026)",
+      "checked": "2026-09-01"
+    },
+    "Imola": {
+      "length_m": 4909,
+      "race_laps": 63,
+      "race_distance_km": 309.049,
+      "first_grand_prix": 1980,
+      "circuit_official_name": "Autodromo Internazionale Enzo e Dino Ferrari",
+      "circuit_type": "Permanent",
+      "held_in": "Italy",
+      "f1_slug": "emiliaromagna",
+      "source": "formula1.com official circuit page, 2025 emiliaromagna (season 2025)",
+      "checked": "2026-09-01"
+    },
+    "Interlagos": {
+      "length_m": 4309,
+      "race_laps": 71,
+      "race_distance_km": 305.879,
+      "first_grand_prix": 1973,
+      "circuit_official_name": "Autódromo José Carlos Pace",
+      "circuit_type": "Permanent",
+      "held_in": "São Paulo",
+      "f1_slug": "brazil",
+      "source": "formula1.com official circuit page, 2026 brazil (season 2026)",
+      "checked": "2026-09-01"
+    },
+    "Jeddah": {
+      "length_m": 6174,
+      "race_laps": 50,
+      "race_distance_km": 308.45,
+      "first_grand_prix": 2021,
+      "circuit_official_name": "Jeddah Corniche Circuit",
+      "circuit_type": "Temporary - Street",
+      "held_in": "Jeddah",
+      "f1_slug": "saudi-arabia",
+      "source": "formula1.com official circuit page, 2025 saudi-arabia (season 2025)",
+      "checked": "2026-09-01"
+    },
+    "Kuala Lumpur": {
+      "length_m": 5543,
+      "race_laps": 56,
+      "race_distance_km": 310.408,
+      "first_grand_prix": 1999,
+      "circuit_official_name": "Sepang International Circuit",
+      "circuit_type": "Permanent",
+      "held_in": "Malaysia",
+      "aliases": [
+        "Sepang"
+      ],
+      "f1_slug": "bahrain",
+      "source": "formula1.com official circuit page, 2026 bahrain (season 2026)",
+      "checked": "2026-09-01"
+    },
+    "Las Vegas": {
+      "length_m": 6201,
+      "race_laps": 50,
+      "race_distance_km": 309.958,
+      "first_grand_prix": 2023,
+      "circuit_official_name": "Las Vegas Strip Circuit",
+      "circuit_type": "Temporary - Street",
+      "held_in": "Las Vegas",
+      "f1_slug": "las-vegas",
+      "source": "formula1.com official circuit page, 2026 las-vegas (season 2026)",
+      "checked": "2026-09-01"
+    },
+    "Lusail": {
+      "length_m": 5419,
+      "race_laps": 57,
+      "race_distance_km": 308.611,
+      "first_grand_prix": 2021,
+      "circuit_official_name": "Lusail International Circuit",
+      "circuit_type": "Permanent",
+      "held_in": "Doha",
+      "corners": 16,
+      "direction": "clockwise",
+      "notes": "the Grand Prix configuration; the main straight alone runs over a kilometre",
+      "aliases": [
+        "Losail"
+      ],
+      "f1_slug": "qatar",
+      "source": "formula1.com official circuit page, 2026 qatar (season 2026)",
+      "checked": "2026-09-01"
+    },
+    "Madring": {
+      "length_m": 5416,
+      "race_laps": 57,
+      "race_distance_km": 308.524,
+      "first_grand_prix": 2026,
+      "circuit_official_name": "Madring",
+      "circuit_type": "Temporary - Street",
+      "held_in": "Madrid",
+      "notes": "corner count deliberately absent: published figures disagree between 20 and 22 and the official page does not state one. The length was briefly recorded here as 5474 m from a secondary report; the official figure is 5416 m",
+      "aliases": [
+        "Madrid"
+      ],
+      "f1_slug": "spain",
+      "source": "formula1.com official circuit page, 2026 spain (season 2026)",
+      "checked": "2026-09-01"
+    },
+    "Melbourne": {
+      "length_m": 5278,
+      "race_laps": 58,
+      "race_distance_km": 306.124,
+      "first_grand_prix": 1996,
+      "circuit_official_name": "Albert Park Grand Prix Circuit",
+      "circuit_type": "Temporary - Street",
+      "held_in": "Melbourne",
+      "f1_slug": "australia",
+      "source": "formula1.com official circuit page, 2026 australia (season 2026)",
+      "checked": "2026-09-01"
+    },
+    "Mexico City": {
+      "length_m": 4304,
+      "race_laps": 71,
+      "race_distance_km": 305.354,
+      "first_grand_prix": 1963,
+      "circuit_official_name": "Autódromo Hermanos Rodríguez",
+      "circuit_type": "Permanent",
+      "held_in": "Mexico City",
+      "f1_slug": "mexico",
+      "source": "formula1.com official circuit page, 2026 mexico (season 2026)",
+      "checked": "2026-09-01"
+    },
+    "Miami": {
+      "length_m": 5412,
+      "race_laps": 57,
+      "race_distance_km": 308.326,
+      "first_grand_prix": 2022,
+      "circuit_official_name": "Miami International Autodrome",
+      "circuit_type": "Temporary - Street",
+      "held_in": "Miami",
+      "f1_slug": "miami",
+      "source": "formula1.com official circuit page, 2026 miami (season 2026)",
+      "checked": "2026-09-01"
+    },
+    "Monte Carlo": {
+      "length_m": 3337,
+      "race_laps": 78,
+      "race_distance_km": 260.286,
+      "first_grand_prix": 1950,
+      "circuit_official_name": "Circuit de Monaco",
+      "circuit_type": "Temporary - Street",
+      "held_in": "Monte Carlo",
+      "aliases": [
+        "Monaco"
+      ],
+      "f1_slug": "monaco",
+      "source": "formula1.com official circuit page, 2026 monaco (season 2026)",
+      "checked": "2026-09-01"
+    },
+    "Montreal": {
+      "length_m": 4361,
+      "race_laps": 70,
+      "race_distance_km": 305.27,
+      "first_grand_prix": 1978,
+      "circuit_official_name": "Circuit Gilles-Villeneuve",
+      "circuit_type": "Permanent",
+      "held_in": "Montréal",
+      "f1_slug": "canada",
+      "source": "formula1.com official circuit page, 2026 canada (season 2026)",
+      "checked": "2026-09-01"
+    },
+    "Monza": {
+      "length_m": 5793,
+      "race_laps": 53,
+      "race_distance_km": 306.72,
+      "first_grand_prix": 1950,
+      "circuit_official_name": "Autodromo Nazionale Monza",
+      "circuit_type": "Permanent",
+      "held_in": "Monza",
+      "f1_slug": "italy",
+      "source": "formula1.com official circuit page, 2026 italy (season 2026)",
+      "checked": "2026-09-01"
+    },
+    "Sakhir": {
+      "length_m": 5412,
+      "race_laps": 57,
+      "race_distance_km": 308.238,
+      "first_grand_prix": 2004,
+      "circuit_official_name": "Bahrain International Circuit",
+      "circuit_type": "Permanent",
+      "held_in": "Sakhir",
+      "f1_slug": "bahrain",
+      "source": "formula1.com official circuit page, 2025 bahrain (season 2025)",
+      "checked": "2026-09-01"
+    },
+    "Shanghai": {
+      "length_m": 5451,
+      "race_laps": 56,
+      "race_distance_km": 305.066,
+      "first_grand_prix": 2004,
+      "circuit_official_name": "Shanghai International Circuit",
+      "circuit_type": "Permanent",
+      "held_in": "Shanghai",
+      "f1_slug": "china",
+      "source": "formula1.com official circuit page, 2026 china (season 2026)",
+      "checked": "2026-09-01"
+    },
+    "Silverstone": {
+      "length_m": 5891,
+      "race_laps": 52,
+      "race_distance_km": 306.198,
+      "first_grand_prix": 1950,
+      "circuit_official_name": "Silverstone Circuit",
+      "circuit_type": "Permanent",
+      "held_in": "Milton Keynes",
+      "f1_slug": "great-britain",
+      "source": "formula1.com official circuit page, 2026 great-britain (season 2026)",
+      "checked": "2026-09-01"
+    },
+    "Singapore": {
+      "length_m": 4927,
+      "race_laps": 62,
+      "race_distance_km": 305.337,
+      "first_grand_prix": 2008,
+      "circuit_official_name": "Marina Bay Street Circuit",
+      "circuit_type": "Temporary - Street",
+      "held_in": "Singapore",
+      "corners": 19,
+      "layout_since": 2023,
+      "notes": "the 2023 revision cut the corner count from 23 to 19. Secondary references circulate 4928 and 4940 m for the length; the official figure is 4927 m and is what is recorded here",
+      "aliases": [
+        "Marina Bay"
+      ],
+      "f1_slug": "singapore",
+      "source": "formula1.com official circuit page, 2026 singapore (season 2026)",
+      "checked": "2026-09-01"
+    },
+    "Spa-Francorchamps": {
+      "length_m": 7004,
+      "race_laps": 44,
+      "race_distance_km": 308.052,
+      "first_grand_prix": 1950,
+      "circuit_official_name": "Circuit de Spa-Francorchamps",
+      "circuit_type": "Temporary - Road",
+      "held_in": "Spa",
+      "f1_slug": "belgium",
+      "source": "formula1.com official circuit page, 2026 belgium (season 2026)",
+      "checked": "2026-09-01"
+    },
+    "Spielberg": {
+      "length_m": 4326,
+      "race_laps": 71,
+      "race_distance_km": 307.018,
+      "first_grand_prix": 1970,
+      "circuit_official_name": "Red Bull Ring",
+      "circuit_type": "Permanent",
+      "held_in": "Spielberg",
+      "aliases": [
+        "Red Bull Ring"
+      ],
+      "f1_slug": "austria",
+      "source": "formula1.com official circuit page, 2026 austria (season 2026)",
+      "checked": "2026-09-01"
+    },
+    "Suzuka": {
+      "length_m": 5807,
+      "race_laps": 53,
+      "race_distance_km": 307.471,
+      "first_grand_prix": 1987,
+      "circuit_official_name": "Suzuka Circuit",
+      "circuit_type": "Permanent",
+      "held_in": "Nagoya",
+      "f1_slug": "japan",
+      "source": "formula1.com official circuit page, 2026 japan (season 2026)",
+      "checked": "2026-09-01"
+    },
+    "Yas Marina Circuit": {
+      "length_m": 5281,
+      "race_laps": 58,
+      "race_distance_km": 306.183,
+      "first_grand_prix": 2009,
+      "circuit_official_name": "Yas Marina Circuit",
+      "circuit_type": "Permanent",
+      "held_in": "Yas Island",
+      "f1_slug": "united-arab-emirates",
+      "source": "formula1.com official circuit page, 2026 united-arab-emirates (season 2026)",
+      "checked": "2026-09-01"
+    },
+    "Zandvoort": {
+      "length_m": 4259,
+      "race_laps": 72,
+      "race_distance_km": 306.587,
+      "first_grand_prix": 1952,
+      "circuit_official_name": "Circuit Zandvoort",
+      "circuit_type": "Permanent",
+      "held_in": "Zandvoort",
+      "corners": 14,
+      "direction": "clockwise",
+      "layout_since": 2020,
+      "notes": "Turn 3 and the final corner are banked; the banking is why a car carries so much speed through them, and it shows up in cornering load rather than in any published angle we can verify",
+      "f1_slug": "netherlands",
+      "source": "formula1.com official circuit page, 2026 netherlands (season 2026)",
+      "checked": "2026-09-01"
+    }
+  },
+  "_known_upstream_problems": {
+    "las_vegas / vegas": "the historical results feed carries two Las Vegas circuits whose article links are crossed: the entry named for the Strip circuit points at the Grand Prix article, and the entry named for the street circuit points at the Strip circuit article. Neither is recorded here until it is clear which identifier means which layout — a specification filed against the wrong layout is worse than an absent one",
+    "bahrain-in-malaysia": "the 2026 Bahrain Grand Prix is run at Sepang in Malaysia — the championship's own event name is 'FORMULA 1 GULF AIR BAHRAIN GRAND PRIX IN MALAYSIA 2026'. An earlier note here recorded the timing feed's 'Kuala Lumpur' circuit as an upstream error; it is not one, and a race can carry one country's name while being held in another"
+  }
+}

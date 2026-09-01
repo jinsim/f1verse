@@ -3,8 +3,9 @@
 
 """The public tree must remain portable and independent of local workspaces."""
 import ast
+import importlib.util
 import re
-import sys
+import sysconfig
 from pathlib import Path
 
 
@@ -73,6 +74,32 @@ def test_public_tree_publishes_in_english():
     assert not leaked, f"localised script in public files: {leaked}"
 
 
+def _is_stdlib(name: str) -> bool:
+    """Resolve a module to decide where it lives.
+
+    ``sys.stdlib_module_names`` would be simpler but arrived in 3.10, and this
+    package supports 3.9 — so ask the import system where the module actually
+    is. Both paths are resolved first: an interpreter reached through a
+    symlink reports one prefix from ``sysconfig`` and another from the loader,
+    and a plain string comparison would call every stdlib module foreign.
+    Anything that fails to resolve is not the standard library either.
+    """
+    try:
+        spec = importlib.util.find_spec(name)
+    except (ImportError, ValueError):
+        return False
+    if spec is None:
+        return False
+    if spec.origin in {"built-in", "frozen"} or spec.origin is None:
+        return True
+    stdlib = Path(sysconfig.get_paths()["stdlib"]).resolve()
+    try:
+        origin = Path(spec.origin).resolve()
+    except OSError:
+        return False
+    return stdlib in origin.parents
+
+
 def test_src_imports_only_the_standard_library():
     """The zero-dependency rule is the whole install story, so it is checked
     on the syntax tree — a module reaching for a missing package would fail
@@ -102,8 +129,7 @@ def test_src_imports_only_the_standard_library():
                 head = node.module.split(".")[0]
                 if head not in guarded:
                     outside.add(head)
-    stray = sorted(n for n in outside
-                   if n not in sys.stdlib_module_names and n != "f1verse")
+    stray = sorted(n for n in outside if n != "f1verse" and not _is_stdlib(n))
     assert not stray, f"src/ imports outside the standard library: {stray}"
 
 

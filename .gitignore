@@ -9,7 +9,8 @@ __pycache__/
 # fetched data and caches — never committed
 cache/
 .cache/
-data/
+# local scratch data only — the package's own data/ ships in the wheel
+/data/
 datasets/
 archives/
 recordings/
