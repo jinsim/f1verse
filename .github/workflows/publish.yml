@@ -8,6 +8,17 @@ on:
   push:
     tags: ["v*"]
 jobs:
+  gate:
+    # Hygiene, version agreement, surface-vs-bump, changelog. Publication
+    # waits on this: a bad version or an undocumented surface change is not
+    # something a later patch can take back off PyPI.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: python scripts/release_check.py --tag "$GITHUB_REF_NAME"
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -40,7 +51,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with: { name: dist, path: dist/ }
   publish:
-    needs: [test, build]
+    needs: [gate, test, build]
     runs-on: ubuntu-latest
     environment: pypi
     permissions:

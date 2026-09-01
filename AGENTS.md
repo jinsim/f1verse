@@ -22,8 +22,8 @@ of public data sources.
 | `sources/timing.py` | lap tables rebuilt from the raw timing patch stream (grace window, credibility ceiling, blank-vs-unknown, earliest-witness lap ends) | `laps_from_stream` |
 | `sources/liveclient.py` | live SignalR feed over a stdlib WebSocket; stamped recorder and replay | `LiveFeed`, `decode`, `record`, `replay`, `run` |
 | `_clock.py` | wire-format clock/lap/wall-time parsing, every feed shape | `clock_seconds`, `lap_seconds`, `wall_time` |
-| `sources/jolpica.py` | historic results, 1950→now; lap times 1996+, pit stops 2011+ | `get`, `paged`, `race_rows`, `lap_timings`, `pit_stops` |
-| `sources/multiviewer.py` | circuit geometry | `circuit` |
+| `sources/jolpica.py` | historic results and circuit directory, 1950→now; lap times 1996+, pit stops 2011+ | `get`, `paged`, `circuits`, `race_rows`, `lap_timings`, `pit_stops` |
+| `sources/multiviewer.py` | circuit geometry with revisable-layout cache policy | `circuit` |
 | `session.py` | **`Session` base** — any session of a weekend; per-kind classification | `Session`, `Qualifying`, `Practice` |
 | `race.py` | **native `Race` object** — the main entry; lap-by-lap order, churn, battles | `load(year, round)`, `load_session`, `sessions`, `Race.story()`, `running_order`, `position_changes`, `battles` |
 | `archive.py` | **pre-2023 races** — 1996+ lap times, 2011+ pit stops, with an explicit `coverage` block | `load_archive(year, round)`, `coverage`, `ArchiveRace.story()` |
@@ -31,14 +31,18 @@ of public data sources.
 | `gaps.py` | broadcast gap convention; provenance-preserving gap series | `format_gap`, `reconcile` |
 | `crosscheck.py` | publish gating across independent sources | `crosscheck(race)` |
 | `history.py` | careers, milestones, circuit records, standings, cross-season rankings | `career`, `milestones`, `circuit_history`, `standings`, `title_margins`, `season_shape` |
-| `circuit.py` | geometry + history in one profile | `profile(year, round)` |
+| `circuit.py` | current-layout geometry + history, full venue directory, evidence-labelled shape diagnostics | `profile(year, round)`, `directory`, `layout_diagnostics` |
 | `teammates.py` | teammate head-to-head scores | `head_to_head(year)` |
 | `predict.py` | win probabilities from measured base rates; seeded strategy rollouts; championship projection with its own backtest | `win_probabilities`, `grid_base_rates`, `strategy_rollout`, `title_scenarios`, `championship_projection`, `backtest_projection` |
 | `strategy.py` | undercut/overcut verdicts against real pit loss; fuel-normalised tyre life and outlook | `pit_exchanges(race)`, `circuit_pit_loss`, `stint_degradation`, `circuit_abrasion`, `fuel_normalised`, `tyre_outlook` |
+| `reference.py` | published circuit facts (curated over Wikidata), the audit that re-derives them from telemetry, and the review that keeps them current | `facts`, `known`, `audit`, `stale`, `review` (exported as `circuit_facts`, `circuit_audit`, `circuit_review`, `circuit_facts_stale`) |
+| `sources/formula1.py` | official circuit specifications, swept from the season index (curation tool, not a query path) | `season_slugs`, `circuit_specs`, `season_specs` |
+| `sources/wikidata.py` | circuit specifications from the CC0 upstream, reached via the article each circuit already names | `entity_id`, `circuit_facts` |
+| `survey.py` | circuit measured from its own telemetry (public entry `circuit_survey`) — elevation, overtaking zones, braking/throttle character, used width and a relative camber index | `elevation`, `corner_dossier`, `overtaking_zones`, `character`, `driven_corridor`, `drs_zones`, `survey` |
 | `telemetry.py` | car data and track position, per lap | `lap_telemetry`, `lap_trace`, `top_speeds` |
 | `weather.py` | session conditions | `readings`, `summary` |
 | `narration.py` | structured fact sheet, deterministic brief, verified optional generation | `race_facts`, `brief`, `narrate`, `verify` |
-| `fia.py` | FIA decision-document index | `documents`, `power_unit_documents` |
+| `fia.py` | FIA decision-document index; season chosen by id, walks the event list | `documents`, `events`, `power_unit_documents` |
 | `feeds.py` | additional live-timing feeds; the feed's own passing signals | `championship_prediction`, `team_radio`, `timing_stats`, `overtake_signals`, `overtake_hotspots` |
 | `_json.py` | everything public passes through here | `jsonsafe` |
 | `_tools.py` | agent tool catalogue — one source for schemas and dispatch | `catalog`, `call` (exported as `tools`, `call_tool`) |
@@ -107,7 +111,13 @@ of public data sources.
    keys, and `"10"` sorts before `"2"`. Anything that iterates laps uses
    the private integer-keyed helper (`Race._order`, `ArchiveRace._order`);
    only the public wrapper passes through `jsonsafe`.
-16. **The library is consumer-blind.** f1verse has no knowledge of any
+16. **Curated facts are never written from memory.** An entry in
+   `data/circuits.json` carries the source it was read from and the date it
+   was checked, and a circuit nobody has verified stays absent —
+   `reference.facts` returning `None` says "nobody looked", which is a
+   different and more useful statement than a plausible wrong number.
+   Automated refreshes may only write `reference.SWEPT`.
+17. **The library is consumer-blind.** f1verse has no knowledge of any
    downstream application, sibling workspace, private dataset, brand, or
    publishing pipeline. Features enter this repository only when they stand
    alone for general Python or MCP users. Never inspect or import from outside
@@ -116,6 +126,15 @@ of public data sources.
 
 ## Source behaviour worth knowing
 
+- **The FIA documents site picks a season by id, not by the year in the URL.**
+  The year segment is decorative: `season-2026-2071` returns 2025's documents
+  with a 200 and a full page. Getting the id wrong therefore fails *silently*,
+  which is why `fia._SEASON_KEY` is explicit and an unknown year raises rather
+  than falling back to a default. Verified ids: 2020=1059, 2021=1108,
+  2022=2005, 2023=2042, 2024=2043, 2025=2071, 2026=2072.
+- **A FIA season landing page only shows the most recent event.** Indexing a
+  whole season means walking the event dropdown, one request per event, which
+  is what `fia.documents()` does — hence every row carries its `event`.
 - Classified time values are **not comparable for lapped cars** — a
   lapped P8 can print a smaller number than P7. Always branch on `Status`.
 - `/meetings` **includes cancelled rounds**; filter `is_cancelled`
@@ -159,6 +178,78 @@ of public data sources.
 - Points systems changed repeatedly, so raw title margins do not compare
   across eras. `title_margins` also reports the gap relative to what a win
   was worth that season.
+
+## Circuit knowledge
+
+Three independent layers answer "what is this circuit". They are ordered by
+trust, and each exists because the ones beside it fail differently.
+
+| Layer | Where | Good at | Fails at |
+|---|---|---|---|
+| curated | `data/circuits.json` | surveyed facts a human checked | going silently stale |
+| upstream | `sources/wikidata.py` (CC0) | breadth — 58 of 78 venues carry a length | crowd-sourced, gaps on new and street circuits |
+| measured | `survey.py` | noticing that either of the others is wrong | being precise enough to publish |
+
+`reference.facts(name, article)` merges the first two **field by field** and
+returns `provenance` saying which layer each value came from.
+`circuit.profile(measure=True)` adds the third plus the tyre surface reading,
+and `reference.audit` reports where measurement and record disagree — as a
+disagreement, never a culprit.
+
+### Keeping it current
+
+`scripts/refresh_circuits.py` with no argument sweeps **the season running
+now**, so a new year needs no edit. It joins official event pages to sessions
+on the `meetingKey` both feeds share — an exact join, which replaced fuzzy
+name matching that could not separate three United States races or two
+spellings of Lusail. It prints a diff (NEW / CHANGED / STALE / SKIPPED) and
+writes only with `--write`: a moved length is either a rebuilt circuit or a
+parse broken by a redesign, and only a person tells those apart.
+`reference.stale()` names entries unchecked for longer than a season, and
+every audit carries `checked_age_days`.
+
+### Traps, each found by being wrong first
+
+- **Secondary reports are not sources.** They copy each other, so agreement
+  between them is one claim repeated. Madrid circulated as 5474 m against an
+  official 5416 m; Singapore as 4928 and 4940 m against 4927 m.
+- **Fields whose sources disagree are left out**, not picked. An absent field
+  audits as `unchecked`, and the measurement is then free to cast a vote.
+- **A sweep may only touch `reference.SWEPT`.** Corner counts and notes are
+  human-owned; the official pages do not publish them and an automated
+  refresh must never clear them.
+- **Feeds spell circuits differently** (Lusail/Losail, Singapore/Marina Bay,
+  Monte Carlo/Monaco, Spielberg/Red Bull Ring). Entries carry `aliases`;
+  keying a new entry by the wrong name makes it dead at runtime.
+- **A Grand Prix can be held in another country.** The 2026 Bahrain Grand
+  Prix runs at Sepang in Malaysia — the championship's own event name says
+  so. A feed reporting a Malaysian circuit for it is correct, not broken.
+- **An official page embeds the event more than once**, with different
+  fields in each copy, so the copies must be merged rather than chosen
+  between. There is no separate API — the site renders on the server.
+- **The season index is ordered from today**, not from round one, so
+  position in it says nothing about round number.
+
+### What the cars can and cannot measure
+
+- Verified at Zandvoort: measured lap distance within 0.4% of the published
+  4.259 km, corner count exact, per-corner lateral load in the 4-5 g band a
+  Formula 1 car really sustains.
+- The **camber index is not an angle.** It locates banking and gives its
+  direction but reads about a quarter of the true slope, because noise in a
+  car's measured lateral position drags any fitted slope toward zero.
+  Banking is not obtainable from public data at all: a 30 m DEM pixel
+  swallows the whole track width, and precise scans are commercial.
+- **Which laps are read decides what is measured.** Quick laps are all the
+  same line, so they measure a road a foot wide and never open DRS; opening
+  laps spread the field across the road. Pit-lane samples must be excluded
+  or the fit reports impossible geometry.
+- **From 2026 there is no DRS.** The channel remains in the schema and is
+  never set, so an empty result is a regulation change, not weather.
+  `survey.overtaking_zones` is the era-independent successor.
+- `circuit_abrasion` clamps its factor to [0.7, 1.4]; `at_limit` marks a
+  clamped reading, which is a floor rather than a measurement.
+
 
 ## Operating
 

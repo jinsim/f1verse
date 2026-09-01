@@ -234,9 +234,13 @@ def circuit_abrasion(race, min_laps: int = 8) -> dict:
     if len(ratios) < 3:
         return jsonsafe({"factor": None, "verdict": "unknown",
                          "samples": len(ratios)})
-    factor = min(max(sorted(ratios)[len(ratios) // 2], 0.7), 1.4)
+    raw = sorted(ratios)[len(ratios) // 2]
+    factor = min(max(raw, 0.7), 1.4)
     return jsonsafe({
         "factor": round(factor, 3),
+        # a clamped value is a floor, not a reading: say so rather than let
+        # "1.4" be mistaken for a measurement that happened to land there
+        "at_limit": raw != factor,
         "verdict": ("abrasive" if factor > 1.05 else
                     "smooth" if factor < 0.95 else "ordinary"),
         "samples": len(ratios),

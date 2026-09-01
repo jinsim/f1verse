@@ -54,6 +54,17 @@ def paged(path: str, table: str, key: str, page: int = 100,
     return list(iter_paged(path, table, key, page, ttl, max_pages))
 
 
+def circuits() -> list:
+    """The championship's circuit directory, including retired venues.
+
+    Unlike a race result, this directory grows when a new venue enters the
+    calendar. Refresh it on the schedule cadence instead of freezing a
+    convenient-but-stale list of "all" circuits in the cache.
+    """
+    data = get("circuits", limit=1000, ttl=http.TTL_SCHEDULE)
+    return data.get("CircuitTable", {}).get("Circuits", [])
+
+
 def race_rows(path: str, key: str, page: int = 100,
               max_pages: int = 60) -> list:
     """Rows from an endpoint that paginates *inside* a single race.

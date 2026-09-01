@@ -25,6 +25,9 @@ _SESSION = {"type": "string",
                            "Qualifying, Sprint, Sprint Qualifying, Practice 1-3. "
                            "Defaults to Race.",
             "default": "Race"}
+_CIRCUIT_ID = {"type": "string",
+               "description": "Stable circuit id from f1_circuit_directory, "
+                              "e.g. 'monza', 'spa' or 'nurburgring'."}
 
 _SPECS = [
     {
@@ -234,6 +237,61 @@ _SPECS = [
                                            "steadier and slower."}},
         "required": ["year"],
     },
+    {
+        "name": "f1_circuit_profile",
+        "summary": "A circuit's layout, pit-loss economics and historical record.",
+        "description": (
+            "Geometry, corner-by-corner lap position and local heading change, "
+            "mini-sector and marshal-sector boundaries, pit loss under green/SC/VSC, "
+            "a reference lap, and historical outcomes in one evidence-labelled "
+            "profile. Coordinate length is explicitly not presented as surveyed "
+            "metres; absent elevation, width and DRS geometry are named rather "
+            "than guessed. Use this for a race-preview track explainer."),
+        "params": {"year": _YEAR, "round": _ROUND},
+        "required": ["year", "round"],
+    },
+    {
+        "name": "f1_circuit_survey",
+        "summary": "The circuit measured from the cars that drove it.",
+        "description": (
+            "What no public circuit map carries, measured from telemetry "
+            "instead: the height profile with gradients and total climb; where "
+            "overtakes actually happen, clustered into zones and merged across "
+            "the timing line; how much of the lap is spent at full throttle and "
+            "where the braking zones are, with entry and minimum speeds; the "
+            "width of road the field used and the camber of it. DRS zones are "
+            "included for seasons that had DRS and reported as a regulation "
+            "change, not a weather excuse, for those that do not. Every figure "
+            "names the laps and drivers behind it and declines rather than "
+            "guesses when the samples cannot support it. Use for track "
+            "explainers and previews that need real numbers, not an outline."),
+        "params": {"year": _YEAR, "round": _ROUND},
+        "required": ["year", "round"],
+    },
+    {
+        "name": "f1_circuit_directory",
+        "summary": "Every Formula 1 venue recorded in the historical results.",
+        "description": (
+            "A source-labelled directory of circuit ids, names, cities, countries "
+            "and coordinates from 1950 to today. This is the discovery call for "
+            "a historic venue; pass its id to f1_circuit_history for "
+            "results, and use f1_circuit_profile with a year and round when the "
+            "question needs that event's specific layout."),
+        "params": {},
+        "required": [],
+    },
+    {
+        "name": "f1_circuit_history",
+        "summary": "A Formula 1 venue's winners, pole conversion and records.",
+        "description": (
+            "Historical results at one circuit: every event count, recent winners "
+            "and their starting positions, pole-to-win conversion, and the most "
+            "successful drivers. Use f1_circuit_directory first to discover the "
+            "stable circuit id; this is results history, so it does not assign a "
+            "modern map to an older layout."),
+        "params": {"circuit_id": _CIRCUIT_ID},
+        "required": ["circuit_id"],
+    },
 ]
 
 def _story(year, round, **_):
@@ -334,6 +392,27 @@ def _title_race(year, runs=20000, **_):
             "projection": championship_projection(year, runs=int(runs))}
 
 
+def _circuit_profile(year, round, **_):
+    from .circuit import profile
+    return profile(year, round)
+
+
+def _circuit_survey(year, round, **_):
+    from .race import load
+    from .survey import survey
+    return survey(load(year, round))
+
+
+def _circuit_directory(**_):
+    from .circuit import directory
+    return directory()
+
+
+def _circuit_history(circuit_id, **_):
+    from .history import circuit_history
+    return circuit_history(circuit_id)
+
+
 _HANDLERS = {
     "f1_race_story": _story,
     "f1_race_brief": _brief,
@@ -352,6 +431,10 @@ _HANDLERS = {
     "f1_season_shape": _season_shape,
     "f1_highlights": _highlights,
     "f1_title_race": _title_race,
+    "f1_circuit_profile": _circuit_profile,
+    "f1_circuit_survey": _circuit_survey,
+    "f1_circuit_directory": _circuit_directory,
+    "f1_circuit_history": _circuit_history,
 }
 
 NAMES = tuple(spec["name"] for spec in _SPECS)

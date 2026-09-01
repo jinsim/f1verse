@@ -1,0 +1,25 @@
+# Pre-release gate — see scripts/release_check.py for what it asserts.
+# Runs on every pull request so a surface change and its version bump land
+# together, and again on the tag, where it blocks publication.
+name: release-check
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # tags and history: the surface diff reads them
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Check the tree
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        run: python scripts/release_check.py
+      - name: Check the tag
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        run: python scripts/release_check.py --tag "$GITHUB_REF_NAME"

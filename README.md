@@ -223,6 +223,49 @@ f1verse.circuit_profile(2026, 13)
 # {'normal': 25.43, 'sc': 16.11, 'vsc': 18.4}  <- what an undercut costs here
 # plus historic record: 75 races held, pole-to-win rate 0.30
 
+# Geometry is also interpreted, but never overclaimed: every corner carries
+# its lap position, preceding-run share and local heading deflection; mini-
+# and marshal-sector boundaries carry lap percentages.
+profile = f1verse.circuit_profile(2026, 13)
+profile["layout"]["corners"][0]
+# {'number': 1, 'progress_pct': 8.412, 'local_deflection_deg': 72.6, ...}
+
+# What a map cannot say, the cars can. This measures the circuit from the
+# session's own telemetry: the height profile, where overtakes actually
+# happen, how much of the lap is flat out and where it is braked, and every
+# numbered corner as the car experienced it.
+f1verse.circuit_survey(2026, 13)["corners"]["corners"][0]
+# {'corner': 1, 'apex_speed_kph': 103, 'radius_m': 40.0,
+#  'lateral_load_g': 2.09, 'gear_at_apex': 2, 'severity': 'medium'}
+
+# Published specifications are stored rather than derived, and the
+# measurement audits them rather than replacing them.
+f1verse.circuit_profile(2026, 13, measure=True)["audit"]
+# {'verdict': 'agrees', 'checked_age_days': 0,
+#  'checks': [{'field': 'length_m', 'published': 4259, 'measured': 4274.4,
+#              'off_by_percent': 0.36, 'state': 'agrees'}, ...]}
+
+# The published facts and the audit are reachable on their own, so a caller
+# can ask what is claimed without paying for a telemetry survey.
+f1verse.circuit_facts("Austin")
+# {'length_m': 5513, 'race_laps': 56, 'race_distance_km': 308.405,
+#  'provenance': {'length_m': 'curated', ...},
+#  'source': 'formula1.com official circuit page, 2026 united-states',
+#  'checked': '2026-09-01'}
+# None for a circuit nobody has curated yet - it does not invent a length
+
+f1verse.circuit_audit(2026, 13)
+# the same verdict as profile(measure=True)["audit"], on its own
+
+f1verse.circuit_directory()
+# every venue recorded in F1 results, with stable id, city, country and
+# coordinates; unlike a current map, it does not pretend an old layout has
+# today's geometry
+
+f1verse.circuit_history("monza")
+# every F1 event at the venue, recent winners and starting positions,
+# pole-to-win conversion, and the drivers with the most wins
+
 f1verse.head_to_head(2026)
 # teammate quali/race scores per constructor
 

@@ -154,3 +154,18 @@ def test_title_margin_normalises_across_points_eras():
     # pure arithmetic check on the era weighting, no network:
     # 2 points in 2025 (win = 25) must rank closer than 2 in 1960 (win = 8)
     assert 2 / 25 < 2 / 8
+
+
+def test_fia_season_ids_are_distinct_and_unknown_years_refuse():
+    """The FIA site picks a season by id, not by the year in the URL, so a
+    duplicated id silently serves the wrong season — the exact bug this
+    guards. An unknown year must refuse rather than fall back."""
+    import pytest
+
+    from f1verse import fia
+    ids = list(fia._SEASON_KEY.values())
+    assert len(ids) == len(set(ids)), "duplicate season ids serve wrong years"
+    assert fia._SEASON_KEY[2026] == 2072 and fia._SEASON_KEY[2025] == 2071
+    with pytest.raises(LookupError) as e:
+        fia._season_path(1999)
+    assert "2026" in str(e.value)      # the error names the real options

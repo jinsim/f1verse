@@ -3,6 +3,60 @@
 Versions follow [semantic versioning](https://semver.org). Published
 releases are immutable; a fix ships as a new patch version.
 
+## 0.14.0
+
+**A circuit stops being a name on a calendar: f1verse now publishes what a
+track is, measures it from the cars that drove it, and says out loud when the
+two disagree.**
+
+### Circuits
+
+Three layers, deliberately kept apart so a reader can always tell a curated
+fact from a measurement:
+
+- **`circuit_facts`** returns published facts for a circuit, or `None` — a
+  circuit nobody has curated yet says so rather than inventing a length.
+- **`circuit_survey`** measures a circuit from the telemetry of one of its
+  races, so the number has a race behind it.
+- **`circuit_audit`** compares the two and reports the gap. Publishing a
+  figure the cars contradict is the failure this exists to prevent.
+
+Around them: `circuit_directory` (every venue in the historical results),
+`circuit_review` (what a fresh sweep of the official pages would change),
+`circuit_facts_stale` (curated entries nobody has checked for longer than a
+season), and `layout_diagnostics`, which describes a trace without inventing
+physical measurements it cannot support.
+
+New MCP tools: `f1_circuit_directory`, `f1_circuit_history`,
+`f1_circuit_profile`, `f1_circuit_survey`.
+
+### Fixed
+
+- **FIA documents returned the wrong season, silently.** That site picks a
+  season by an opaque id and ignores the year in the URL, so a stale id
+  answered a 2026 request with 2025's documents — a full page, HTTP 200, no
+  error anywhere. Season ids are now explicit and an unknown year raises
+  instead of falling back to a default.
+- **`fia.documents()` only ever indexed one event.** A season landing page
+  shows the most recent event alone, so what claimed to be a season index was
+  a single weekend. It now walks the event list, and every row carries the
+  `event` it came from. Pass `event="dutch"` to scope it back to one. The new
+  `fia.events()` lists them.
+
+### Release safety
+
+`scripts/release_check.py` runs on every pull request and again on the tag,
+where publication waits on it. It reads the last release tag's public surface
+with `ast` — no install, no network — and refuses a version bump smaller than
+the change requires: removing a name demands major, adding one demands minor,
+and an unchanged surface demands nothing. It also refuses a surface change
+that `CHANGELOG.md` does not mention by name.
+
+Tree hygiene moved into `tests/test_public_boundary.py`, which now also
+rejects localised prose in the public tree and enforces the zero-dependency
+rule on the syntax tree — an import guarded by `except ImportError` still
+being the documented way to accept an optional value.
+
 ## 0.13.1
 
 ### Fixed

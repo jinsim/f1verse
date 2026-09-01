@@ -26,7 +26,8 @@ from .archive import ArchiveRace, coverage as era_coverage, load_archive
 from .feeds import (championship_prediction, overtake_hotspots,
                     overtake_signals, team_radio, timing_stats)
 from .gaps import format_gap, reconcile as reconcile_gaps
-from .circuit import profile as circuit_profile
+from .circuit import (directory as circuit_directory, layout_diagnostics,
+                      profile as circuit_profile)
 from .crosscheck import crosscheck
 from .fia import documents as fia_documents, power_unit_documents
 from .history import (career, circuit_history, milestones, season_shape,
@@ -42,6 +43,10 @@ from .narration import (brief, narrate, prompt as narration_prompt,
 from .predict import (backtest_projection, championship_projection,
                       grid_base_rates, recent_form, strategy_rollout,
                       title_scenarios, win_probabilities)
+from .reference import audit as circuit_audit
+from .reference import facts as circuit_facts
+from .reference import review as circuit_review
+from .reference import stale as circuit_facts_stale
 from .strategy import (circuit_abrasion, circuit_pit_loss, fuel_normalised,
                        pit_exchanges,
                        stint_degradation, tyre_outlook)
@@ -61,7 +66,9 @@ __all__ = ["__version__", "__license__", "__source__",
            "season", "status", "due",
            "championship_prediction", "team_radio", "timing_stats",
            "crosscheck", "career", "milestones", "circuit_history", "standings",
-           "circuit_profile", "head_to_head", "win_probabilities",
+           "circuit_profile", "circuit_survey", "circuit_directory",
+           "circuit_facts", "circuit_audit", "circuit_review",
+           "circuit_facts_stale", "layout_diagnostics", "head_to_head", "win_probabilities",
            "grid_base_rates", "recent_form", "strategy_rollout",
            "title_scenarios", "championship_projection",
            "backtest_projection",
@@ -72,3 +79,16 @@ __all__ = ["__version__", "__license__", "__source__",
            "lap_trace", "top_speeds", "weather_readings", "weather_summary",
            "race_facts", "brief", "narrate", "narration_prompt", "verify",
            "unsupported_numbers", "tools", "call_tool"]
+
+
+def circuit_survey(year: int, rnd: int, drivers: int = 6, laps: int = 3):
+    """Measure a circuit from the telemetry of one of its races.
+
+    Elevation, the corners as the car experienced them, where overtakes
+    happen, how much of the lap is flat out, and the width and camber of
+    the road the field used. Imported lazily because it is the one circuit
+    call that fetches telemetry.
+    """
+    from .race import load
+    from .survey import survey
+    return survey(load(year, rnd), drivers=drivers, laps=laps)

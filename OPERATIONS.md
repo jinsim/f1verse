@@ -63,6 +63,12 @@ save_snapshot(key, after)
 
 ## Rate limits
 
+`fia.documents()` walks a season one event at a time — roughly two dozen
+requests for a full season. The FIA site asks for `Crawl-delay: 10` in its
+`robots.txt`, so keep those requests serial and let the HTTP layer's pacing
+do its work; do not fan them out.
+
+
 Season-wide aggregation (`head_to_head`, `grid_base_rates`) will hit HTTP
 429. The HTTP layer honours `Retry-After` and backs off exponentially, up
 to six attempts. Do not add `sleep` calls at the call site to work around
@@ -104,6 +110,49 @@ save_state(processed)
 
 Polling `status()` hourly is enough; there is no value in tighter loops,
 because schedules only refresh every six hours anyway.
+
+## Keeping the circuit table current
+
+Circuit specifications are stored rather than derived, which buys accuracy
+and costs currency: a stored figure cannot notice that a track has been
+reprofiled or that a season has turned over. Three things close that gap,
+and none of them writes anything on its own.
+
+```bash
+python scripts/refresh_circuits.py            # the season running now
+python scripts/refresh_circuits.py 2027       # a specific season
+python scripts/refresh_circuits.py 2027 --write
+```
+
+With no year it sweeps the current season, so this survives a new year
+without an edit. It joins official event pages to sessions on the
+`meetingKey` both feeds share and prints a diff:
+
+```
+season 2026 - 23 events swept, 0 unresolved
+  unchanged 23 | not in this sweep 3 | stale 0
+```
+
+- **NEW** — a venue the table has never held. Add it.
+- **CHANGED** — a stored value has moved. This is a rebuilt circuit *or* a
+  parse broken by a site redesign, and only a person can tell which. Check
+  the official page before writing.
+- **STALE** — unchecked for longer than a season. Age is not error; it is
+  the absence of recent evidence.
+- **SKIPPED** — the page no longer parses. Never write a value from a
+  partial parse.
+
+Run it when a calendar is announced, when a circuit is rebuilt, or when
+`reference.stale()` starts naming entries. A sweep may only write the
+fields in `reference.SWEPT` — corner counts and notes are human-owned,
+because the official pages do not publish them and an automated refresh
+that cleared them would be silently destructive.
+
+Between refreshes, `reference.audit` compares the stored figures against
+what the cars measured that weekend, and every audit reports
+`checked_age_days` so a passing check can be read against the age of what
+it passed against.
+
 
 ## Before publishing anything
 

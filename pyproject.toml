@@ -50,5 +50,8 @@ License = "https://github.com/jinsim/f1verse/blob/main/LICENSE"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+f1verse = ["data/*.json"]
+
 [tool.setuptools.dynamic]
 version = {attr = "f1verse._version.__version__"}

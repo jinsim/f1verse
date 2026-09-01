@@ -13,4 +13,7 @@ BASE = "https://api.multiviewer.app/api/v1/circuits/"
 
 
 def circuit(circuit_key: int, year: int) -> dict:
-    return http.get_json(f"{BASE}{circuit_key}/{year}")
+    # Layout metadata can be corrected while a season is under way. It is
+    # stable enough to avoid repeat traffic in one preview, but not immutable
+    # in the way completed lap telemetry is.
+    return http.get_json(f"{BASE}{circuit_key}/{year}", ttl=http.TTL_SCHEDULE)
