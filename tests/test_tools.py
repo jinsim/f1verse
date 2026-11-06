@@ -62,3 +62,39 @@ def test_unexpected_argument_error_names_what_is_accepted():
     with pytest.raises(TypeError, match="driver_id"):
         f1verse.call_tool("f1_driver_career",
                           {"driver_id": "hamilton", "season": 2026})
+
+
+def test_tyre_tool_passes_the_explicit_scenario_to_both_analyses(monkeypatch):
+    from f1verse import race, strategy
+    token = object()
+    calls = []
+    monkeypatch.setattr(race, "load", lambda *args: token)
+    def analysis(loaded, *, fuel_model):
+        assert loaded is token
+        calls.append(fuel_model)
+        return []
+    monkeypatch.setattr(strategy, "stint_degradation", analysis)
+    monkeypatch.setattr(strategy, "circuit_abrasion", analysis)
+    scenario = {"start_kg": 70, "burn_kg_per_lap": 1.1, "cost_s_per_kg": 0.025}
+    f1verse.call_tool("f1_tyre_wear", {"year": 2026, "round": 12, "fuel_model": scenario})
+    assert calls == [scenario, scenario]
+    calls.clear()
+    f1verse.call_tool("f1_tyre_wear", {"year": 2026, "round": 12})
+    assert calls == [None, None]
+
+
+@pytest.mark.parametrize("scenario, message", [
+    ([], "object"), ({}, "start_kg"),
+    ({"start_kg": 70, "burn_kg_per_lap": True, "cost_s_per_kg": 0.025}, "number"),
+    ({"start_kg": 70, "burn_kg_per_lap": float("nan"), "cost_s_per_kg": 0.025}, "finite"),
+    ({"start_kg": 70, "burn_kg_per_lap": float("inf"), "cost_s_per_kg": 0.025}, "finite"),
+    ({"start_kg": -1, "burn_kg_per_lap": 1, "cost_s_per_kg": 0.025}, "range"),
+    ({"start_kg": 70, "burn_kg_per_lap": 1, "cost_s_per_kg": 0.025, "extra": 1}, "unexpected"),
+])
+def test_tyre_scenario_is_validated_before_fetching(scenario, message, monkeypatch):
+    from f1verse import race
+    def no_fetch(*args):
+        raise AssertionError("invalid scenario must not fetch data")
+    monkeypatch.setattr(race, "load", no_fetch)
+    with pytest.raises((TypeError, ValueError), match=message):
+        f1verse.call_tool("f1_tyre_wear", {"year": 2026, "round": 12, "fuel_model": scenario})

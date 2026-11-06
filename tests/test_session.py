@@ -132,7 +132,7 @@ def test_quality_report_works_for_every_kind(race, sess, name):
     q = (race if name == "Race" else sess[name]).quality_report()
     assert q["state"] == "final"
     assert q["coverage"]["overall"] > 0.95
-    assert q["publishable"] is True
+    assert q["publishable"] is True, (q["availability"], q["warnings"])
     json.dumps(q)
 
 

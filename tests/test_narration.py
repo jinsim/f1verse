@@ -51,6 +51,20 @@ def test_unknown_driver_codes_are_caught():
     assert "HAM" in report["unknown_names"]
 
 
+@pytest.mark.parametrize("text", ["ANT won; NOR led 32 laps.",
+                                 "NOR retired.", "ANT dominated the race.", ""])
+def test_existing_tokens_cannot_be_recombined_into_false_claims(text):
+    assert not N.verify(text, FACTS)["ok"]
+
+
+def test_claim_selection_is_rendered_by_python_and_rejects_added_prose():
+    text, ids = N._render_selection('{"fact_ids":["led.ANT","result.winner"]}', FACTS)
+    assert ids == ["led.ANT", "result.winner"]
+    assert "ANT led 32 laps." in text
+    assert N.verify(text, FACTS)["ok"]
+    assert N._render_selection('{"fact_ids":["led.ANT"],"text":"ANT won"}', FACTS)[0] == ""
+
+
 def test_prompt_is_stable_and_structured():
     """Identical facts must produce an identical prompt, or neither
     provider-side prefix caching nor local caching can work."""

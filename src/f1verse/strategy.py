@@ -11,6 +11,8 @@ answers it with the circuit's real pit loss as the yardstick.
 from __future__ import annotations
 
 from ._json import jsonsafe
+from ._evidence import evidence
+import math
 
 
 def _gap_at(race, drv_num, lap):
@@ -38,7 +40,7 @@ def circuit_pit_loss(race) -> dict:
 
 
 def pit_exchanges(race, pit_loss_s: float | None = None,
-                  window: int = 4) -> list:
+                  window: int = 4, *, resolve_pit_loss: bool = True) -> list:
     """Every genuine undercut attempt, with a verdict.
 
     For each stop, find the driver immediately ahead who had *not* yet
@@ -51,7 +53,7 @@ def pit_exchanges(race, pit_loss_s: float | None = None,
     and stops where the rival responded on the same lap, which is a
     covering stop rather than an undercut.
     """
-    if pit_loss_s is None:
+    if pit_loss_s is None and resolve_pit_loss:
         pit_loss_s = circuit_pit_loss(race).get("normal")
     neutralised = {l for a, b in race.interruptions()["sc_vsc_bands"]
                    for l in range(a, b + 2)}
@@ -91,6 +93,13 @@ def pit_exchanges(race, pit_loss_s: float | None = None,
         if rival_lap - lap > window:
             continue                      # too far apart to be a response
         after = rival_lap + 2             # both on fresh tyres
+        if any(l in neutralised for l in range(lap - 1, after + 1)):
+            continue  # a neutralisation between stops also confounds the exchange
+        needed = set(range(lap, after + 1))
+        if any(not needed.issubset({l["lap_number"] for l in race.laps
+                                   if l["driver_number"] == n and l.get("lap_duration")})
+               for n in (me, rival)):
+            continue
         pre = (_gap_at(race, me, lap - 1), _gap_at(race, rival, lap - 1))
         post = (_gap_at(race, me, after), _gap_at(race, rival, after))
         if None in pre or None in post:
@@ -107,6 +116,8 @@ def pit_exchanges(race, pit_loss_s: float | None = None,
             # what the move recovered, as a share of the stop it cost
             "share_of_pit_loss": (round(gain / pit_loss_s, 3)
                                   if pit_loss_s else None),
+            "kind_of_claim": "observed_comparison", "causal_effect_s": None,
+            "limitations": ["opponents react; traffic and tyre differences are not isolated"],
         })
     return jsonsafe(sorted(out, key=lambda e: e["lap"]))
 
@@ -119,19 +130,44 @@ def pit_exchanges(race, pit_loss_s: float | None = None,
 # have nothing to do with rubber. Strip that out first, or every
 # degradation number is an understatement.
 
-FUEL_START_KG = 110.0       # regulation maximum race fuel load
-FUEL_BURN_KG_PER_LAP = 1.6  # typical burn; near-constant across circuits
-FUEL_COST_S_PER_KG = 0.032  # lap-time cost of carrying one kilogram
+FUEL_START_KG = 110.0       # legacy illustrative assumption, not measured fuel
+FUEL_BURN_KG_PER_LAP = 1.6
+FUEL_COST_S_PER_KG = 0.032
 
 
-def fuel_normalised(lap_time_s: float, lap_number: int) -> float:
+def _fuel_model(race=None, model=None):
+    year = getattr(race, "year", None)
+    if model is None and year is not None and year >= 2026:
+        return {"available": False, "scope": "unsupported_era",
+                "reason": "2026+ fuel and energy effects are not calibrated",
+                "year": year}
+    values = dict(model) if model is not None else {
+        "start_kg": FUEL_START_KG, "burn_kg_per_lap": FUEL_BURN_KG_PER_LAP,
+        "cost_s_per_kg": FUEL_COST_S_PER_KG}
+    required = {"start_kg", "burn_kg_per_lap", "cost_s_per_kg"}
+    if set(values) != required or any(
+            isinstance(v, bool) or not isinstance(v, (int, float))
+            or not math.isfinite(v) or v < 0 for v in values.values()):
+        raise ValueError("fuel_model needs finite nonnegative start_kg, "
+                         "burn_kg_per_lap and cost_s_per_kg")
+    return {**values, "available": True, "year": year,
+            "scope": "caller_scenario" if model is not None else "legacy_scenario",
+            "reason": "assumed coefficients; fuel load is not observed"}
+
+
+def fuel_normalised(lap_time_s: float, lap_number: int, *, fuel_model=None) -> float:
     """A lap time with the weight of the remaining fuel priced out.
 
     The returned value answers "what would this lap have cost on an empty
     tank", which makes laps from different points in the race comparable.
     """
-    on_board = max(FUEL_START_KG - (lap_number - 1) * FUEL_BURN_KG_PER_LAP, 0.0)
-    return lap_time_s - FUEL_COST_S_PER_KG * on_board
+    if (isinstance(lap_number, bool) or not isinstance(lap_number, int) or lap_number < 1
+            or not isinstance(lap_time_s, (int, float)) or not math.isfinite(lap_time_s)
+            or lap_time_s <= 0):
+        raise ValueError("lap_time_s must be finite and positive; lap_number must be a positive integer")
+    model = _fuel_model(model=fuel_model)
+    on_board = max(model["start_kg"] - (lap_number - 1) * model["burn_kg_per_lap"], 0.0)
+    return lap_time_s - model["cost_s_per_kg"] * on_board
 
 
 def _trend(points: list) -> float | None:
@@ -151,7 +187,8 @@ def _trend(points: list) -> float | None:
     return mid if n % 2 else (slopes[n // 2 - 1] + mid) / 2
 
 
-def _clean_stint_laps(race, drv_num: int, first: int, last: int) -> list:
+def _clean_stint_laps(race, drv_num: int, first: int, last: int, *,
+                      fuel_model=None, raw=False) -> list:
     """``(lap, fuel-normalised seconds)`` for the representative laps of a
     stint — pit laps, neutralised laps and obvious traffic excluded, per
     the same domain defaults ``race_pace`` applies."""
@@ -168,10 +205,15 @@ def _clean_stint_laps(race, drv_num: int, first: int, last: int) -> list:
     if not rows:
         return []
     ref = sorted(t for _, t in rows)[len(rows) // 2]
-    return [(ln, fuel_normalised(t, ln)) for ln, t in rows if t <= ref * 1.07]
+    model = _fuel_model(race, fuel_model)
+    coeffs = {k: model[k] for k in ("start_kg", "burn_kg_per_lap", "cost_s_per_kg")} \
+        if model["available"] else None
+    return [(ln, t if raw or not model["available"] else
+             fuel_normalised(t, ln, fuel_model=coeffs))
+            for ln, t in rows if t <= ref * 1.07]
 
 
-def stint_degradation(race, min_laps: int = 5) -> list:
+def stint_degradation(race, min_laps: int = 5, *, fuel_model=None) -> list:
     """How fast each set of tyres went off, stint by stint.
 
     One entry per stint, with the evidence the number was computed from:
@@ -179,6 +221,9 @@ def stint_degradation(race, min_laps: int = 5) -> list:
     fewer than ``min_laps`` clean laps gets no rate rather than a shaky
     one — ``reason`` says so explicitly.
     """
+    if isinstance(min_laps, bool) or not isinstance(min_laps, int) or min_laps < 2:
+        raise ValueError("min_laps must be an integer >= 2")
+    model = _fuel_model(race, fuel_model)
     out = []
     for s in sorted(race.stints_raw,
                     key=lambda s: (s.get("driver_number") or 0,
@@ -187,7 +232,8 @@ def stint_degradation(race, min_laps: int = 5) -> list:
         first, last = s.get("lap_start"), s.get("lap_end")
         if num is None or first is None or last is None:
             continue
-        clean = _clean_stint_laps(race, num, first, last)
+        clean = _clean_stint_laps(race, num, first, last, fuel_model=fuel_model)
+        raw = _clean_stint_laps(race, num, first, last, raw=True)
         entry = {
             "driver": race.abbr(num),
             "stint": s.get("stint_number"),
@@ -195,8 +241,20 @@ def stint_degradation(race, min_laps: int = 5) -> list:
             "laps": [first, last],
             "tyre_age_at_start": s.get("tyre_age_at_start"),
             "clean_laps_used": len(clean),
+            "raw_trend_s_per_lap": round(_trend(raw), 4) if len(raw) >= min_laps else None,
+            "fuel_model": model,
+            "evidence": evidence("median_pairwise_slope", {
+                "year": getattr(race, "year", None), "driver_number": num,
+                "stint": s.get("stint_number"), "raw_points": raw, "fuel_model": model},
+                sample_unit="lap within one stint", samples=len(clean),
+                assumptions=[model["reason"], "not a causal estimate of tyre wear"],
+                exclusions=["pit and following lap", "SC/VSC and restart lap",
+                            "red flag and following lap", "laps >107% of stint median"]),
         }
-        if len(clean) < min_laps:
+        if not model["available"]:
+            entry.update({"degradation_s_per_lap": None,
+                          "reason": model["reason"]})
+        elif len(clean) < min_laps:
             entry.update({"degradation_s_per_lap": None,
                           "reason": "too few clean laps"})
         else:
@@ -206,6 +264,17 @@ def stint_degradation(race, min_laps: int = 5) -> list:
                 "fuel_normalised_pace_s":
                     round(sorted(t for _, t in clean)[len(clean) // 2], 3),
             })
+            # Refit both scenarios, including any assumed empty-tank clamp.
+            sensitivity = []
+            for multiplier in (0.75, 1.25):
+                coeffs = {k: model[k] for k in ("start_kg", "burn_kg_per_lap", "cost_s_per_kg")}
+                coeffs["burn_kg_per_lap"] *= multiplier
+                sensitivity.append(_trend([(l, fuel_normalised(t, l, fuel_model=coeffs))
+                                           for l, t in raw]))
+            entry["fuel_sensitivity_s_per_lap"] = {
+                "kind": "scenario_range", "burn_multiplier": [0.75, 1.25],
+                "range": [round(v, 4) for v in sorted(sensitivity)],
+                "note": "refitted fuel-burn scenarios, not statistical uncertainty"}
         out.append(entry)
     return jsonsafe(out)
 
@@ -216,7 +285,7 @@ def stint_degradation(race, min_laps: int = 5) -> list:
 _ORDINARY_WEAR_S_PER_LAP = {"SOFT": 0.015, "MEDIUM": 0.009, "HARD": 0.003}
 
 
-def circuit_abrasion(race, min_laps: int = 8) -> dict:
+def circuit_abrasion(race, min_laps: int = 8, *, fuel_model=None) -> dict:
     """How hard this surface is on tyres, relative to an ordinary circuit.
 
     Each long-enough stint contributes its degradation rate divided by
@@ -226,14 +295,15 @@ def circuit_abrasion(race, min_laps: int = 8) -> dict:
     fewer than three the verdict is ``"unknown"``, not a guess.
     """
     ratios = []
-    for e in stint_degradation(race, min_laps=min_laps):
+    for e in stint_degradation(race, min_laps=min_laps, fuel_model=fuel_model):
         base = _ORDINARY_WEAR_S_PER_LAP.get(e["compound"])
         rate = e.get("degradation_s_per_lap")
         if base and rate is not None and rate > 0:
             ratios.append(rate / base)
     if len(ratios) < 3:
         return jsonsafe({"factor": None, "verdict": "unknown",
-                         "samples": len(ratios)})
+                         "samples": len(ratios), "fuel_model": _fuel_model(race, fuel_model),
+                         "reason": "fewer than three usable positive corrected stint trends"})
     raw = sorted(ratios)[len(ratios) // 2]
     factor = min(max(raw, 0.7), 1.4)
     return jsonsafe({
@@ -244,6 +314,7 @@ def circuit_abrasion(race, min_laps: int = 8) -> dict:
         "verdict": ("abrasive" if factor > 1.05 else
                     "smooth" if factor < 0.95 else "ordinary"),
         "samples": len(ratios),
+        "kind": "scenario_index", "fuel_model": _fuel_model(race, fuel_model),
     })
 
 
@@ -262,18 +333,25 @@ def _running_pace(points: list, expected_rate: float,
     """
     (lap0, mu), var = points[0], lap_noise_s ** 2
     prev = lap0
+    history = [points[0]]
     for lap, seconds in points[1:]:
-        ahead = (lap - prev) * expected_rate
-        var += drift_s ** 2
+        # Learn drift from past laps only; a misspecified wear prior must
+        # not leave a permanent bias once the stint supplies evidence.
+        observed = _trend(history) if len(history) >= 3 else None
+        rate = ((expected_rate + (len(history) - 2) * observed) / (len(history) - 1)
+                if observed is not None else expected_rate)
+        ahead = (lap - prev) * rate
+        var += drift_s ** 2 * (lap - prev)
         weight = var / (var + lap_noise_s ** 2)
         # the more the stopwatch is trusted, the less the wear model adds
-        mu += ahead * (1 - weight) + weight * (seconds - (mu + ahead))
+        mu += ahead + weight * (seconds - (mu + ahead))
         var *= (1 - weight)
         prev = lap
+        history.append((lap, seconds))
     return mu, var ** 0.5
 
 
-def tyre_outlook(race, cliff_s: float = 1.0) -> list:
+def tyre_outlook(race, cliff_s: float = 1.0, *, fuel_model=None) -> list:
     """Where each driver's current rubber is heading.
 
     For the last stint on record per driver: the fuel-normalised pace the
@@ -283,6 +361,9 @@ def tyre_outlook(race, cliff_s: float = 1.0) -> list:
     as ``None`` and say why; a number this forward-looking must never
     pretend to more evidence than it has.
     """
+    if not math.isfinite(cliff_s) or cliff_s <= 0:
+        raise ValueError("cliff_s must be finite and positive")
+    model = _fuel_model(race, fuel_model)
     latest = {}
     for s in race.stints_raw:
         num = s.get("driver_number")
@@ -295,13 +376,22 @@ def tyre_outlook(race, cliff_s: float = 1.0) -> list:
         first, last = s.get("lap_start"), s.get("lap_end")
         compound = (s.get("compound") or "UNKNOWN").upper()
         entry = {"driver": race.abbr(num), "compound": compound,
-                 "stint": s.get("stint_number")}
-        clean = _clean_stint_laps(race, num, first or 0, last or 0) \
+                 "stint": s.get("stint_number"), "fuel_model": model,
+                 "claim_kind": "scenario", "physical_tyre_life": None}
+        clean = _clean_stint_laps(race, num, first or 0, last or 0,
+                                  fuel_model=fuel_model) \
             if first and last else []
-        if len(clean) < 4:
+        entry["evidence"] = evidence("adaptive_drift_pace_filter", {
+            "points": clean, "driver_number": num, "fuel_model": model,
+            "threshold_s": cliff_s, "stint": s.get("stint_number")},
+            sample_unit="clean lap within last observed stint", samples=len(clean),
+            kind="scenario", assumptions=["future drift held constant", model["reason"]],
+            exclusions=["pit, neutralisation and conspicuously slow laps"],
+            uncertainty={"kind": "conditional_filter_standard_deviation; drift uncertainty omitted"})
+        if len(clean) < 4 or not model["available"]:
             entry.update({"pace_now_s": None, "trend_s_per_lap": None,
                           "laps_to_cliff": None,
-                          "reason": "too few clean laps",
+                          "reason": "too few clean laps" if model["available"] else model["reason"],
                           "clean_laps_used": len(clean)})
             out.append(entry)
             continue
@@ -316,6 +406,79 @@ def tyre_outlook(race, cliff_s: float = 1.0) -> list:
             "laps_to_cliff": (int(cliff_s / expected)
                               if expected > 1e-4 else None),
             "clean_laps_used": len(clean),
+            "uncertainty_kind": "conditional_filter_standard_deviation",
+            "trend_source": "fitted" if rate and rate > 0 else "compound_prior",
+            "limitations": ["not a prediction interval", "pit timing is a strategy decision",
+                            "constant trend extrapolation, not physical tyre life"],
         })
         out.append(entry)
     return jsonsafe(out)
+
+
+def pace_changes(race, min_laps: int = 5, threshold_s: float = 0.75, *,
+                 fuel_model=None) -> dict:
+    """Retrospective persistent pace shifts, without claiming their cause.
+
+    Compare adjacent windows after removing the median adjacent-lap trend.
+    Windows never cross missing/excluded laps or stint boundaries. The
+    threshold is an effect-size rule, not a significance test. Future laps
+    are required: this is deliberately not a live detector.
+    """
+    from statistics import median
+    if isinstance(min_laps, bool) or not isinstance(min_laps, int) or min_laps < 3:
+        raise ValueError("min_laps must be an integer >= 3")
+    if not math.isfinite(threshold_s) or threshold_s <= 0:
+        raise ValueError("threshold_s must be finite and positive")
+    changes, inputs, windows_compared = [], [], 0
+    for stint in race.stints_raw:
+        num, first, last = (stint.get(k) for k in ("driver_number", "lap_start", "lap_end"))
+        if None in (num, first, last):
+            continue
+        points = _clean_stint_laps(race, num, first, last, fuel_model=fuel_model)
+        # A conflicting duplicate lap is not a second independent observation.
+        per_lap = {}
+        for lap, seconds in points:
+            per_lap.setdefault(lap, set()).add(seconds)
+        points = [(l, next(iter(v))) for l, v in sorted(per_lap.items()) if len(v) == 1]
+        inputs.append({"driver": num, "stint": stint.get("stint_number"), "points": points})
+        groups = []
+        for point in points:
+            if not groups or point[0] != groups[-1][-1][0] + 1:
+                groups.append([])
+            groups[-1].append(point)
+        for group in groups:
+            if len(group) < 2 * min_laps:
+                continue
+            slope = median(b[1] - a[1] for a, b in zip(group, group[1:]))
+            residual = [(l, t - slope * l) for l, t in group]
+            candidates = []
+            for i in range(min_laps, len(group) - min_laps + 1):
+                windows_compared += 1
+                before = [t for _, t in residual[i-min_laps:i]]
+                after = [t for _, t in residual[i:i+min_laps]]
+                shift = median(after) - median(before)
+                noise = median([abs(t - median(before)) for t in before] +
+                               [abs(t - median(after)) for t in after])
+                if abs(shift) >= max(threshold_s, 3 * noise):
+                    candidates.append((abs(shift), i, shift, noise))
+            selected = []
+            for magnitude, i, shift, noise in sorted(candidates, reverse=True):
+                if any(abs(i - j) < 2 * min_laps for j in selected):
+                    continue
+                selected.append(i)
+                changes.append({"driver": race.abbr(num), "stint": stint.get("stint_number"),
+                    "lap": group[i][0], "shift_s": round(shift, 3),
+                    "direction": "slower" if shift > 0 else "faster",
+                    "window_laps": min_laps, "noise_mad_s": round(noise, 3),
+                    "kind": "observed_pace_shift", "cause": None})
+    return jsonsafe({"changes": sorted(changes, key=lambda c: (c["lap"], c["driver"])),
+        "status": "analysed" if windows_compared else "insufficient_data",
+        "windows_compared": windows_compared,
+        "uses_future_information": True, "fuel_model": _fuel_model(race, fuel_model),
+        "evidence": evidence("adjacent_window_median_shift", inputs,
+            sample_unit="lap within a contiguous clean stint", samples=sum(
+                len(r["points"]) for r in inputs), kind="descriptive_detection",
+            assumptions=[f"effect threshold {threshold_s} seconds; not a p-value",
+                         f"{min_laps} laps on each side; three-MAD noise floor",
+                         "median adjacent-lap trend removed; cause unobserved"],
+            exclusions=["pit/neutralisation laps and missing-lap boundaries"])})

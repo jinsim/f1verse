@@ -30,7 +30,7 @@ def jsonsafe(obj):
         return obj
     if (_np is not None and isinstance(obj, _np.floating)) or isinstance(obj, float):
         f = float(obj)
-        return None if math.isnan(f) else f
+        return None if not math.isfinite(f) else f
     if isinstance(obj, datetime.timedelta):
         return obj.total_seconds()
     if isinstance(obj, (datetime.datetime, datetime.date)):

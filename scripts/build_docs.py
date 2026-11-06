@@ -243,18 +243,19 @@ PAGES = [
         "grounded-f1-summaries",
         "Write F1 race summaries an LLM cannot make up",
         "How do I generate F1 race summaries without hallucinated numbers?",
-        "Build the text from <code>f1verse.race_facts(race)</code> and check the "
-        "output with <code>f1verse.verify(text, facts)</code>, which rejects any "
-        "number or driver code the data does not support.",
+        "Use <code>f1verse.fact_catalog(facts)</code> to bind claim IDs to exact "
+        "sentences. A generator selects IDs; Python renders them. "
+        "<code>verify</code> rejects unverified prose and reassigned values.",
         '>>> facts = f1verse.race_facts(race)\n'
         '>>> f1verse.brief(race)            # templates only, no model, no cost\n'
         "'Dutch Grand Prix, 72 laps at Zandvoort. Lando Norris (McLaren) won. ...'\n"
         '>>> f1verse.verify(draft, facts)\n'
-        "{'ok': False, 'unsupported_numbers': [1.4], 'unsupported_codes': ['VER']}",
+        "{'ok': False, 'unverified_claims': [...], ...}",
         notes=[
             "Models never calculate race facts here. Narration receives "
-            "preformatted structured facts, and a generated draft only survives "
-            "if every number and driver code in it appears in those facts.",
+            "preformatted structured facts. Generated selections return JSON "
+            "with a fact_ids list. Token membership alone cannot validate "
+            "which driver a number belongs to; arbitrary prose is not verified.",
             "<code>brief()</code> is also the fallback when generation fails "
             "verification. A plain sentence is always better than a wrong one.",
         ],
@@ -294,10 +295,9 @@ PAGES = [
             "Twelve races is a small sample, and treating it as settled is how "
             "a forecast becomes more confident than anyone should be.",
             "<code>f1verse.backtest_projection()</code> replays the model on "
-            "finished seasons and buckets the record by claimed confidence. "
-            "At round 12 of 2019-2025 it went 5/5 when it claimed 90%+, and "
-            "both misses were seasons it had itself called near 55% — the two "
-            "that ran to the final round.",
+            "finished seasons at selectable checkpoints, returning proper scores, "
+            "a same-case baseline, interval coverage and excluded cases. This "
+            "uses current corrected sources, not an issued-forecast ledger.",
         ],
         related=["f1-race-json-one-call", "f1-undercut-analysis", "f1-mcp-server"],
     ),
@@ -305,26 +305,26 @@ PAGES = [
         "f1-tyre-degradation",
         "Measure F1 tyre degradation in Python",
         "How do I measure F1 tyre degradation from race data?",
-        "Call <code>f1verse.stint_degradation(race)</code>. It returns seconds "
-        "lost per lap for each stint, computed on fuel-normalised clean laps "
-        "only, and reports how many laps each rate stands on.",
+        "Call <code>f1verse.stint_degradation(race)</code> for raw clean-lap "
+        "trends and labelled fuel-scenario corrections. For 2026 onward, "
+        "corrected wear is unavailable without an explicit fuel model.",
         '>>> f1verse.stint_degradation(race)[3]\n'
-        "{'driver': 'NOR', 'stint': 2, 'compound': 'HARD', 'tyre_age_at_start': 0,\n"
-        " 'clean_laps_used': 18, 'degradation_s_per_lap': 0.041}\n"
+        "{'raw_trend_s_per_lap': ..., 'degradation_s_per_lap': None,\n"
+        " 'reason': '2026+ fuel and energy effects are not calibrated', ...}\n"
         '>>> f1verse.circuit_abrasion(race)\n'
-        "{'factor': 1.4, 'verdict': 'abrasive', 'samples': 55}",
+        "{'factor': None, 'verdict': 'unknown', ...}",
         notes=[
-            "A car gets faster all race as it burns fuel, so raw lap times "
-            "understate degradation on every stint. <code>fuel_normalised()</code> "
-            "removes that trend before any rate is fitted — without it, a "
-            "degradation number is mostly a fuel number.",
+            "Fuel is not observed. Legacy and caller-supplied coefficients are "
+            "assumptions; their sensitivity range is not a confidence interval. "
+            "Raw pace changes can also reflect traffic and energy deployment.",
             "Pit, safety-car and traffic laps are excluded, and a stint with too "
             "few clean laps left returns "
             "<code>{'degradation_s_per_lap': None, 'reason': 'too few clean "
             "laps'}</code> rather than a rate fitted to noise. Every number "
             "carries its sample count.",
             "<code>f1verse.tyre_outlook(race)</code> projects the same rates "
-            "forward to the point where a stint falls off its cliff.",
+            "forward to a pace threshold under a constant-trend scenario. "
+            "It does not measure physical tyre life.",
         ],
         related=["f1-undercut-analysis", "f1-race-json-one-call", "f1-results-final"],
     ),
@@ -388,15 +388,25 @@ MCP_PAGE = Page(
     "f1-mcp-server",
     "Formula 1 MCP server",
     "How do I give an AI agent access to Formula 1 data?",
-    "Point any MCP client at <code>uvx --from f1verse f1verse-mcp</code>. There is no install "
-    "step and no dependency tree: the server is standard library only, so it "
-    "starts and answers <code>tools/list</code> in about 140 ms.",
+    "Connect an MCP client with <code>uvx --from f1verse f1verse-mcp</code> for data "
+    "tools. The repository also includes an agent skill for analysis instructions; "
+    "installing the skill and connecting MCP are separate steps.",
     '{\n'
     '  "mcpServers": {\n'
     '    "f1verse": {"command": "uvx", "args": ["--from", "f1verse", "f1verse-mcp"]}\n'
     '  }\n'
     '}',
     notes=[
+        'The <a href="https://github.com/jinsim/f1verse/blob/main/.agents/skills/f1verse/SKILL.md">'
+        'f1verse skill</a> works with Python or a connected MCP server. Codex '
+        'discovers it under <code>.agents/skills/f1verse</code> in a checkout. '
+        'For other projects, install the directory as a user skill. '
+        'The skill does not connect a server or provide upstream access.',
+        'When advertised by the installed version, <code>resources/list</code> '
+        'exposes <code>f1verse://guide</code> and the current catalogue; '
+        '<code>prompts/list</code> exposes race-brief and strategy-review workflows. '
+        'These discovery calls do not fetch race data. The official MCP registry '
+        'name is <code>io.github.jinsim/f1verse</code>; a skill is distributed separately.',
         "A catalogue a model can actually choose from, not eighty "
         "near-duplicates. The server tells the client to resolve vague "
         "references with "
@@ -414,6 +424,25 @@ MCP_PAGE = Page(
     ],
     related=["f1-race-json-one-call", "f1-results-final", "grounded-f1-summaries"],
 )
+
+PAGES.append(Page(
+    "f1-evidence-methods", "Evidence-linked F1 events and forecast evaluation",
+    "How do I inspect the evidence behind an F1 turning point?",
+    "Call <code>race.events()</code> for stable IDs and source references, "
+    "or <code>race.turning_points()</code> for ranked retrospective candidates. "
+    "Observed changes and causal effects remain distinct.",
+    'race.events()\nrace.turning_points(limit=5)\n'
+    'f1verse.pace_changes(race)\n'
+    'f1verse.backtest_projection(checkpoints=[4, 8, 12])',
+    notes=["Pace shifts use future clean laps and never cross excluded-lap "
+           "boundaries. They do not identify a cause. Ranking weights are "
+           "editorial heuristics, not probabilities.",
+           "Forecast evaluations include proper scores, interval coverage and "
+           "failed cases. Multiple checkpoints in one season are dependent.",
+           "Source availability and stale fallbacks are visible. "
+           "See METHODOLOGY.md in the repository for assumptions and references."],
+    related=["f1-results-final", "grounded-f1-summaries", "f1-championship-probability"],
+))
 
 ALL = [MCP_PAGE] + PAGES
 BY_SLUG = {p.slug: p for p in ALL}
@@ -488,6 +517,7 @@ def head(page: Page, description: str, jsonld: list) -> str:
   <span class="name"><a href="{SITE}/">f1verse</a></span>
   <nav>
     <a href="{SITE}/{MCP_PAGE.slug}/">MCP server</a>
+    <a href="{REPO}/blob/main/.agents/skills/f1verse/SKILL.md">Agent skill</a>
     <a href="{REPO}">GitHub</a>
     <a href="https://pypi.org/project/f1verse/">PyPI</a>
   </nav>

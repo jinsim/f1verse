@@ -54,7 +54,7 @@ ledger, persist `race.snapshot()` yourself and compare with `f1verse.diff`:
 
 ```python
 before = load_snapshot(key) or race.snapshot()
-after = race.refresh().snapshot()      # refresh() forces the revisable rows
+after = race.refresh().snapshot()      # refresh() forces all loaded session feeds
 change = f1verse.diff(before, after)
 if change["changed"]:
     publish_correction(change["changes"])
@@ -74,7 +74,41 @@ Season-wide aggregation (`head_to_head`, `grid_base_rates`) will hit HTTP
 to six attempts. Do not add `sleep` calls at the call site to work around
 this — if a job is dying, the backoff is the thing to fix.
 
-Requests are paced at two per second regardless of cache state.
+Network attempts use a default 0.5 s interval; OpenF1 uses 2.05 s and FIA
+document hosts use 10 s. Cache hits make no request.
+OpenF1 is additionally bounded to 30 requests per rolling minute. Every retry
+spends both short-window and hourly capacity. Exhaustion raises an actionable
+`BudgetExhausted` instead of sleeping for a minute or longer. These counters
+are per process, so multiple workers must share an external scheduling budget.
+
+## Access and partial availability
+
+`f1verse.source_status()` reports the last observed access state in this process;
+it does not probe a source. HTTP 401, 403 and 404 become `http.SourceUnavailable`
+with `authentication_required`, `access_denied` or `not_found` status. A source
+requiring authentication is not an empty dataset. Optional missing stints, pits,
+race-control and position feeds leave basic classification accessible, with the
+gap visible in `race.availability()`. The quality report names its publication
+scope: a race story requires all its inputs, while a non-race classification
+requires drivers, laps and results. Missing unrelated feeds remain warnings.
+
+`configure_source("livetiming", headers=your_headers)` configures caller-supplied
+HTTP headers in memory for the exact HTTPS host only. Pass no headers to clear.
+This does not log in, obtain/renew tokens, authenticate the live WebSocket, or
+verify subscription access. Headers are never written into diagnostics or cache;
+credentialed cross-origin redirects are refused. Do not put credentials in URLs.
+
+Stale-on-error delivery remains available, but `entry_meta` and session provenance
+record it, including across process restarts. `quality_report` blocks publication
+of a stale fallback. A successful refresh clears that state. A growing feed body
+must be fetched again before being promoted to an immutable completed-session
+entry, preventing a partial live lap table from becoming permanent.
+
+## Local validation
+
+`pytest -q --offline` runs the deterministic suite without live reference-source
+tests. `pytest -q` additionally validates the reference weekend against upstream
+services. A missing source is a blocked integration check, not an offline pass.
 
 ## Knowing when to run
 

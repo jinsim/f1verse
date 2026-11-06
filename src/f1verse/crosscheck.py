@@ -27,11 +27,13 @@ was compared" must not look the same.
 """
 
 from .sources import openf1
+from . import http
 
 
 def _check(name, ok, detail):
     return {"name": name, "status": "ok" if ok else "mismatch",
-            "detail": detail}
+            "detail": detail, "scope": "internal_consistency",
+            "independent_origin": False}
 
 
 def _skip(name, detail):
@@ -60,8 +62,9 @@ def crosscheck(race) -> dict:
             total += 1
             if abs(s[0] + s[1] + s[2] - s[3]) > 0.003:
                 bad += 1
-    checks.append(_check("sector_sum", bad / max(total, 1) < 0.02,
-                         f"{bad}/{total} laps off by >3ms"))
+    checks.append(_check("sector_sum", bad / total < 0.02,
+                         f"{bad}/{total} laps off by >3ms") if total else
+                  _skip("sector_sum", "no complete sector sums to compare"))
 
     # -- gap_monotonic (the lapped-car trap, as an invariant) ---------------
     prev, breaks = None, []
@@ -86,7 +89,9 @@ def crosscheck(race) -> dict:
     # -- leader_vs_overtakes (independent endpoint) -------------------------
     runs = [r["abbr"] for r in race.leader_runs()]
     try:
-        ot = sorted(openf1.get("overtakes", session_key=race.session_key,
+        ttl = (http.TTL_LIVE if getattr(race, "lifecycle", "final") in
+               ("in_progress", "provisional") else http.TTL_FOREVER)
+        ot = sorted(openf1.get("overtakes", ttl=ttl, session_key=race.session_key,
                                position=1), key=lambda o: o["date"])
     except Exception as e:
         # /overtakes is not published for every session (sprints, older
@@ -111,6 +116,8 @@ def crosscheck(race) -> dict:
             "leader_vs_overtakes", ok,
             f"on-track P1 passes {passes} ⊆ lead changes {changes}"
             + ("" if ok else " — FAILED")))
+        checks[-1].update({"scope": "cross_endpoint", "sources": [
+            "openf1.position", "openf1.overtakes"], "independent_origin": False})
 
     # -- stints_vs_pits (informational) -------------------------------------
     pit_per = {}
@@ -123,10 +130,16 @@ def crosscheck(race) -> dict:
         extra = (len(sts) - 1) - pit_per.get(num, 0)
         if extra > 1:  # >1 non-pit stint split is suspicious even with a red flag
             unexplained.append(race.abbr(num))
-    checks.append(_check("stints_vs_pits", not unexplained,
+    unavailable = getattr(race, "_availability", {})
+    incomplete = [ep for ep in ("stints", "pit", "race_control")
+                  if unavailable.get(ep, {}).get("status", "available") != "available"]
+    checks.append(_skip("stints_vs_pits", f"unavailable inputs: {incomplete}")
+                  if incomplete else _check("stints_vs_pits", not unexplained,
                          f"suspicious stint splits: {unexplained or 'none'}"))
 
     mismatches = [c["name"] for c in checks if c["status"] == "mismatch"]
     skipped = [c["name"] for c in checks if c["status"] == "skipped"]
     return {"checks": checks, "mismatches": mismatches, "skipped": skipped,
+            "validation_scope": "internal and same-provider cross-endpoint checks",
+            "independent_origins_compared": 0,
             "publishable": not mismatches}

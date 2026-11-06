@@ -146,6 +146,15 @@ def quality_report(race) -> dict:
     cc = race.crosscheck() if hasattr(race, "crosscheck") else None
 
     warnings = []
+    availability = race.availability() if hasattr(race, "availability") else {}
+    unavailable = [ep for ep, value in availability.items()
+                   if value["status"] not in ("available", "not_applicable")]
+    stale = [ep for ep, value in prov.items() if value.get("stale_on_error")]
+    required = ({"drivers", "laps", "session_result", "race_control", "stints", "pit", "position"}
+                if race.KIND == "Race" else {"drivers", "laps", "session_result"})
+    blocked_inputs = sorted(required.intersection(unavailable + stale))
+    warnings += [f"{ep}: {availability[ep]['status']}" for ep in unavailable]
+    warnings += [f"{ep}: refresh failed; cached data served" for ep in stale]
     if lifecycle in ("in_progress", "provisional"):
         warnings.append(
             f"session is {lifecycle}: timing data is not final yet")
@@ -183,11 +192,15 @@ def quality_report(race) -> dict:
         "missing_truncated": sum(gap_counts.values()) > len(missing),
         "source_age_seconds": max(ages) if ages else None,
         "provenance": prov,
+        "availability": availability,
+        "publication_scope": "race_story" if race.KIND == "Race" else "classification",
+        "blocked_inputs": blocked_inputs,
         "revisions": revs,
         "crosscheck": cc,
         "warnings": warnings,
         "publishable": bool(
             (cc is None or cc["publishable"])
+            and not blocked_inputs
             and lifecycle not in ("in_progress", "provisional")
             and (cov["overall"] or 0) >= 0.95),
     })

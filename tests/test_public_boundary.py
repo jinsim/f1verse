@@ -10,10 +10,11 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
-PUBLIC_DIRS = ("src", "tests", "scripts", "examples")
+PUBLIC_DIRS = ("src", "tests", "scripts", "examples", ".agents")
 PUBLIC_FILES = (
     "AGENTS.md", "CHANGELOG.md", "CONTRIBUTING.md", "NOTICE", "README.md",
     "RELEASING.md", "SECURITY.md", "llms.txt", "pyproject.toml", "server.json",
+    "METHODOLOGY.md", "MANIFEST.in",
 )
 LOCAL_PATH_MARKERS = (
     "/" + "Users/",

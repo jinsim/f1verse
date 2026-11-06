@@ -16,10 +16,14 @@ catalogue backs the bundled MCP server (``f1verse-mcp``).
 """
 from __future__ import annotations
 
+import math
+
 from ._json import jsonsafe
 
-_YEAR = {"type": "integer", "description": "Season year, e.g. 2026. Race data 2023+."}
-_ROUND = {"type": "integer", "description": "Round number within the season, 1-based."}
+_YEAR = {"type": "integer", "minimum": 1950,
+         "description": "Season year, e.g. 2026. Race data 2023+."}
+_ROUND = {"type": "integer", "minimum": 1,
+          "description": "Round number within the season, 1-based."}
 _SESSION = {"type": "string",
             "description": "Session name as the calendar spells it: Race, "
                            "Qualifying, Sprint, Sprint Qualifying, Practice 1-3. "
@@ -30,6 +34,48 @@ _CIRCUIT_ID = {"type": "string",
                               "e.g. 'monza', 'spa' or 'nurburgring'."}
 
 _SPECS = [
+    {
+        "name": "f1_source_status",
+        "summary": "Last observed access state for each data source.",
+        "description": "No network probe. Distinguishes authentication, rate limits, "
+                       "availability and sources not yet checked in this process.",
+        "params": {}, "required": [],
+    },
+    {
+        "name": "f1_race_events",
+        "summary": "Evidence-linked race and pit-cycle events.",
+        "description": "Stable event IDs, input lineage and observed gap changes. "
+                       "No causal strategy claim or media download.",
+        "params": {"year": _YEAR, "round": _ROUND}, "required": ["year", "round"],
+    },
+    {
+        "name": "f1_turning_points",
+        "summary": "Ranked retrospective race turning-point candidates.",
+        "description": "Ranks observed events by an explicit fixed event-kind heuristic. "
+                       "Uses future race information; not a live forecast or win-value model.",
+        "params": {"year": _YEAR, "round": _ROUND,
+                   "limit": {"type": "integer", "minimum": 1, "maximum": 100,
+                             "default": 10, "description": "Maximum candidate events."}},
+        "required": ["year", "round"],
+    },
+    {
+        "name": "f1_pace_changes",
+        "summary": "Persistent retrospective pace shifts within clean stints.",
+        "description": "Adjacent clean-lap windows, with trend removed, detect pace changes. "
+                       "Excluded laps are boundaries; the method does not identify a cause.",
+        "params": {"year": _YEAR, "round": _ROUND}, "required": ["year", "round"],
+    },
+    {
+        "name": "f1_retirement_risk",
+        "summary": "Observed retirement survival across selected settled races.",
+        "description": "All-cause Kaplan-Meier over completed laps. Finishes are censored. "
+                       "Not a calibrated future reliability forecast; causes are unavailable.",
+        "params": {"year": _YEAR,
+                   "rounds": {"type": "array", "items": {"type": "integer", "minimum": 1},
+                              "minItems": 1, "maxItems": 10,
+                              "description": "Up to ten rounds to pool; repeated rounds deduplicated."}},
+        "required": ["year", "rounds"],
+    },
     {
         "name": "f1_race_story",
         "summary": "Everything that happened in one race, as structured JSON.",
@@ -128,12 +174,25 @@ _SPECS = [
         "name": "f1_tyre_wear",
         "summary": "How fast each set of tyres degraded, stint by stint.",
         "description": (
-            "Per-stint degradation in seconds per lap, computed on "
-            "fuel-normalised clean laps only (pit, safety-car and traffic laps "
-            "excluded), plus a circuit abrasion verdict relative to an ordinary "
-            "surface. Every rate reports how many clean laps it stands on; "
-            "stints too short to judge say so instead of guessing."),
-        "params": {"year": _YEAR, "round": _ROUND},
+            "Raw clean-stint lap-time trends and fuel-scenario corrected "
+            "degradation, with exclusions, sample sizes and sensitivity. "
+            "2026+ corrected wear requires an explicit fuel_model; without it "
+            "only raw trends are available. Earlier default coefficients are "
+            "illustrative assumptions, not measured fuel. Circuit abrasion is "
+            "a scenario index, not a measured surface property."),
+        "params": {"year": _YEAR, "round": _ROUND,
+                   "fuel_model": {
+                       "type": "object",
+                       "description": "Optional caller fuel scenario, not measured fuel. Required for 2026+ corrected wear.",
+                       "properties": {
+                           "start_kg": {"type": "number", "minimum": 0,
+                                        "description": "Assumed starting fuel mass, kg."},
+                           "burn_kg_per_lap": {"type": "number", "minimum": 0,
+                                               "description": "Assumed fuel burned per lap, kg."},
+                           "cost_s_per_kg": {"type": "number", "minimum": 0,
+                                             "description": "Assumed lap-time cost per kg, seconds."}},
+                       "required": ["start_kg", "burn_kg_per_lap", "cost_s_per_kg"],
+                       "additionalProperties": False}},
         "required": ["year", "round"],
     },
     {
@@ -294,6 +353,33 @@ _SPECS = [
     },
 ]
 
+
+def _source_status(**_):
+    from .http import source_status
+    return {"sources": source_status()}
+
+
+def _race_events(year, round, **_):
+    from .race import load
+    return load(year, round).events()
+
+
+def _turning_points(year, round, limit=10, **_):
+    from .race import load
+    return load(year, round).turning_points(limit=limit)
+
+
+def _pace_changes(year, round, **_):
+    from .race import load
+    from .strategy import pace_changes
+    return pace_changes(load(year, round))
+
+
+def _retirement_risk(year, rounds, **_):
+    from .race import load
+    from .reliability import retirement_risk
+    return retirement_risk([load(year, rnd) for rnd in sorted(set(rounds))])
+
 def _story(year, round, **_):
     from .race import load
     return load(year, round).story()
@@ -338,12 +424,12 @@ def _quality(year, round, session="Race", **_):
     return load_session(year, round, session).quality_report()
 
 
-def _tyres(year, round, **_):
+def _tyres(year, round, fuel_model=None, **_):
     from .race import load
     from .strategy import circuit_abrasion, stint_degradation
     race = load(year, round)
-    return {"stints": stint_degradation(race),
-            "circuit_abrasion": circuit_abrasion(race)}
+    return {"stints": stint_degradation(race, fuel_model=fuel_model),
+            "circuit_abrasion": circuit_abrasion(race, fuel_model=fuel_model)}
 
 
 def _deletions(year, round, session="Race", **_):
@@ -414,6 +500,11 @@ def _circuit_history(circuit_id, **_):
 
 
 _HANDLERS = {
+    "f1_source_status": _source_status,
+    "f1_race_events": _race_events,
+    "f1_turning_points": _turning_points,
+    "f1_pace_changes": _pace_changes,
+    "f1_retirement_risk": _retirement_risk,
     "f1_race_story": _story,
     "f1_race_brief": _brief,
     "f1_session_results": _results,
@@ -461,7 +552,12 @@ def catalog(dialect: str = "mcp") -> list:
         text = f"{spec['summary']} {spec['description']}"
         if dialect == "mcp":
             out.append({"name": spec["name"], "title": spec["summary"],
-                        "description": text, "inputSchema": _schema(spec)})
+                        "description": text, "inputSchema": _schema(spec),
+                        "outputSchema": {"type": "object", "properties": {
+                            "result": {"type": "object"}}, "required": ["result"],
+                            "additionalProperties": False},
+                        "annotations": {"readOnlyHint": True, "destructiveHint": False,
+                                        "idempotentHint": True, "openWorldHint": True}})
         else:
             out.append({"type": "function",
                         "function": {"name": spec["name"], "description": text,
@@ -476,10 +572,14 @@ def call(name: str, arguments: dict | None = None):
     missing arguments raise ``TypeError`` naming the ones required — both so
     that a model reading the error can correct itself without the docs.
     """
+    if not isinstance(name, str):
+        raise TypeError("tool name must be a string")
     handler = _HANDLERS.get(name)
     if handler is None:
         raise LookupError(f"unknown tool {name!r} — available: "
                           f"{', '.join(NAMES)}")
+    if arguments is not None and not isinstance(arguments, dict):
+        raise TypeError("tool arguments must be an object")
     args = dict(arguments or {})
     spec = next(s for s in _SPECS if s["name"] == name)
     missing = [k for k in spec["required"] if k not in args]
@@ -491,4 +591,39 @@ def call(name: str, arguments: dict | None = None):
         raise TypeError(f"{name} got unexpected argument(s) "
                         f"{', '.join(extra)} — it accepts "
                         f"{', '.join(spec['params'])}")
+    for key, value in args.items():
+        _validate(value, spec["params"][key], f"{name}.{key}")
     return jsonsafe(handler(**args))
+
+
+def _validate(value, schema, path):
+    kind = schema.get("type")
+    matches = {"integer": isinstance(value, int) and not isinstance(value, bool),
+               "number": isinstance(value, (int, float)) and not isinstance(value, bool),
+               "object": isinstance(value, dict),
+               "string": isinstance(value, str), "array": isinstance(value, list)}
+    if not matches.get(kind, True):
+        raise TypeError(f"{path} must be {kind}")
+    if "enum" in schema and value not in schema["enum"]:
+        raise ValueError(f"{path} must be one of {schema['enum']}")
+    if kind in ("integer", "number"):
+        if kind == "number" and not math.isfinite(value):
+            raise ValueError(f"{path} must be finite")
+        if value < schema.get("minimum", value) or value > schema.get("maximum", value):
+            raise ValueError(f"{path} is outside the allowed range")
+    if kind == "object":
+        properties = schema.get("properties", {})
+        missing = [key for key in schema.get("required", []) if key not in value]
+        if missing:
+            raise TypeError(f"{path} needs {', '.join(missing)}")
+        for key, item in value.items():
+            if key not in properties:
+                if schema.get("additionalProperties") is False:
+                    raise TypeError(f"{path} got unexpected property {key!r}; accepts {', '.join(properties)}")
+            else:
+                _validate(item, properties[key], f"{path}.{key}")
+    if kind == "array":
+        if not schema.get("minItems", 0) <= len(value) <= schema.get("maxItems", len(value)):
+            raise ValueError(f"{path} has an invalid number of items")
+        for i, item in enumerate(value):
+            _validate(item, schema["items"], f"{path}[{i}]")

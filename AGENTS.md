@@ -34,6 +34,9 @@ of public data sources.
 | `circuit.py` | current-layout geometry + history, full venue directory, evidence-labelled shape diagnostics | `profile(year, round)`, `directory`, `layout_diagnostics` |
 | `teammates.py` | teammate head-to-head scores | `head_to_head(year)` |
 | `predict.py` | win probabilities from measured base rates; seeded strategy rollouts; championship projection with its own backtest | `win_probabilities`, `grid_base_rates`, `strategy_rollout`, `title_scenarios`, `championship_projection`, `backtest_projection` |
+| `evaluation.py` | proper scores, calibration and intervals for probability forecasts | `forecast_scores` |
+| `events.py` | stable event IDs, source lineage and retrospective turning-point candidates | `race_events`, `turning_points` |
+| `reliability.py` | descriptive all-cause retirement survival with censoring and exclusions | `retirement_risk` |
 | `strategy.py` | undercut/overcut verdicts against real pit loss; fuel-normalised tyre life and outlook | `pit_exchanges(race)`, `circuit_pit_loss`, `stint_degradation`, `circuit_abrasion`, `fuel_normalised`, `tyre_outlook` |
 | `reference.py` | published circuit facts (curated over Wikidata), the audit that re-derives them from telemetry, and the review that keeps them current | `facts`, `known`, `audit`, `stale`, `review` (exported as `circuit_facts`, `circuit_audit`, `circuit_review`, `circuit_facts_stale`) |
 | `sources/formula1.py` | official circuit specifications, swept from the season index (curation tool, not a query path) | `season_slugs`, `circuit_specs`, `season_specs` |
@@ -46,7 +49,10 @@ of public data sources.
 | `feeds.py` | additional live-timing feeds; the feed's own passing signals | `championship_prediction`, `team_radio`, `timing_stats`, `overtake_signals`, `overtake_hotspots` |
 | `_json.py` | everything public passes through here | `jsonsafe` |
 | `_tools.py` | agent tool catalogue — one source for schemas and dispatch | `catalog`, `call` (exported as `tools`, `call_tool`) |
-| `mcp.py` | MCP server: stdlib JSON-RPC 2.0 over stdio, `f1verse-mcp` | `handle`, `serve`, `main` |
+| `mcp.py` | MCP server: stdlib JSON-RPC 2.0 over stdio, tools, offline guide/catalogue resources and analysis prompts | `handle`, `serve`, `main` |
+
+The reusable agent skill lives at `.agents/skills/f1verse/SKILL.md`. It guides
+analysis through Python or a connected MCP server; it is not a server installer.
 
 ## Invariants — do not break these
 

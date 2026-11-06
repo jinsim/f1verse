@@ -1,0 +1,4 @@
+include METHODOLOGY.md
+include OPERATIONS.md
+include CHANGELOG.md
+recursive-include .agents/skills/f1verse *.md

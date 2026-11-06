@@ -16,11 +16,26 @@ rather than downloaded whole and trimmed locally.
 from datetime import timedelta
 
 from ._json import jsonsafe
+from . import http
 from .sources import openf1
 
 # DRS values reported by the timing feed. Values below 8 mean the system is
 # not open; 10, 12 and 14 indicate an activated rear wing.
 _DRS_OPEN = {10, 12, 14}
+
+
+def _ttl(race):
+    return (http.TTL_LIVE if getattr(race, "lifecycle", "final") in
+            ("in_progress", "provisional") else http.TTL_FOREVER)
+
+
+def _aero(race, row):
+    modern = getattr(race, "year", 2025) >= 2026
+    return {"drs_open": None if modern else row.get("drs") in _DRS_OPEN,
+            "drs_status": "not_applicable" if modern else "reported",
+            "overtake_mode": None, "boost_mode": None,
+            "active_aero": None,
+            "mode_coverage": "not reported by this endpoint"}
 
 # Mini-sector status codes, as carried in the timing feed's per-sector
 # ``Segments`` entries. Nothing official documents these; the meanings are
@@ -54,13 +69,13 @@ def lap_telemetry(race, driver: str, lap: int) -> list:
     if num is None:
         raise LookupError(f"unknown driver {driver!r}")
     lo, hi = _window(race, num, lap)
-    rows = openf1.get("car_data", session_key=race.session_key,
+    rows = openf1.get("car_data", ttl=_ttl(race), session_key=race.session_key,
                       driver_number=num, **{"date>=": lo, "date<=": hi})
     return jsonsafe([{
         "date": r["date"], "speed": r.get("speed"),
         "throttle": r.get("throttle"), "brake": r.get("brake"),
         "gear": r.get("n_gear"), "rpm": r.get("rpm"),
-        "drs_open": r.get("drs") in _DRS_OPEN,
+        **_aero(race, r),
     } for r in rows])
 
 
@@ -71,7 +86,7 @@ def lap_trace(race, driver: str, lap: int) -> list:
     if num is None:
         raise LookupError(f"unknown driver {driver!r}")
     lo, hi = _window(race, num, lap)
-    rows = openf1.get("location", session_key=race.session_key,
+    rows = openf1.get("location", ttl=_ttl(race), session_key=race.session_key,
                       driver_number=num, **{"date>=": lo, "date<=": hi})
     return jsonsafe([{"date": r["date"], "x": r.get("x"),
                       "y": r.get("y"), "z": r.get("z")} for r in rows])
@@ -85,13 +100,13 @@ def top_speeds(race, threshold: int = 300) -> dict:
     """
     out = {}
     for num, d in race.drivers.items():
-        rows = openf1.get("car_data", session_key=race.session_key,
+        rows = openf1.get("car_data", ttl=_ttl(race), session_key=race.session_key,
                           driver_number=num, **{"speed>=": threshold})
         if rows:
             best = max(rows, key=lambda r: r.get("speed") or 0)
             out[d.get("name_acronym") or str(num)] = {
                 "speed": best["speed"], "date": best["date"],
-                "gear": best.get("n_gear"), "drs_open": best.get("drs") in _DRS_OPEN,
+                "gear": best.get("n_gear"), **_aero(race, best),
             }
     return jsonsafe(dict(sorted(out.items(),
                                 key=lambda kv: -kv[1]["speed"])))

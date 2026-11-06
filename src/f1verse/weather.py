@@ -9,11 +9,14 @@ particular explains tyre behaviour that lap times alone do not.
 """
 from ._json import jsonsafe
 from .sources import openf1
+from . import http
 
 
 def readings(race) -> list:
     """Every weather sample of the session, chronologically."""
-    rows = sorted(openf1.get("weather", session_key=race.session_key),
+    ttl = (http.TTL_LIVE if getattr(race, "lifecycle", "final") in
+           ("in_progress", "provisional") else http.TTL_FOREVER)
+    rows = sorted(openf1.get("weather", ttl=ttl, session_key=race.session_key),
                   key=lambda r: r["date"])
     return jsonsafe([{
         "date": r["date"], "air_c": r.get("air_temperature"),

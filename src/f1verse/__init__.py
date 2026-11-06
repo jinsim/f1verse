@@ -52,13 +52,22 @@ from .strategy import (circuit_abrasion, circuit_pit_loss, fuel_normalised,
                        stint_degradation, tyre_outlook)
 from .teammates import head_to_head
 from ._tools import catalog as tools, call as call_tool
+from .events import race_events, turning_points
+from .evaluation import forecast_scores
+from .reliability import retirement_risk
+from .strategy import pace_changes
+from .narration import fact_catalog
 
 enable_cache = http.enable_cache
 cache_info = http.cache_info
 clear_cache = http.clear_cache
 revisions = http.revisions
 vintage = http.vintage
+configure_source = http.configure_source
+source_status = http.source_status
 __all__ = ["__version__", "__license__", "__source__",
+           "configure_source", "source_status", "race_events", "turning_points",
+           "pace_changes", "retirement_risk", "forecast_scores", "fact_catalog",
            "load", "load_session", "sessions", "Race", "Session",
            "Qualifying", "Practice", "format_gap", "jsonsafe", "enable_cache",
            "cache_info", "clear_cache", "revisions", "vintage",

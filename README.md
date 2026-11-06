@@ -8,9 +8,13 @@
 
 **[Documentation](https://jinsim.github.io/f1verse/)** ·
 [MCP server](https://jinsim.github.io/f1verse/f1-mcp-server/) ·
+[Agent skill](.agents/skills/f1verse/SKILL.md) ·
 [llms.txt](https://jinsim.github.io/f1verse/llms.txt) ·
 [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) ·
 [Security](SECURITY.md) · [License](LICENSE)
+
+**[Methods and evidence](METHODOLOGY.md)** explains which answers are observations,
+model scenarios or retrospective evaluations, and how to reproduce their checks.
 
 **The story layer for Formula 1 data.** Data libraries fetch and tidy —
 f1verse tells you *what happened*: lead changes, laps led, event timelines,
@@ -48,16 +52,35 @@ f1verse.title_scenarios(2026)           # and who is mathematically out
 
 <!-- mcp-name: io.github.jinsim/f1verse -->
 
-f1verse ships its own MCP server. No install step, no dependencies:
+f1verse provides both an **agent skill** (analysis instructions) and an
+**MCP server** (callable data tools). They can be used together or separately.
+
+The [f1verse skill](.agents/skills/f1verse/SKILL.md) teaches event discovery,
+source checks, strategy interpretation and statistical limits. Codex discovers
+it in this checkout under `.agents/skills/f1verse`; invoke it with `$f1verse`.
+To use it in other projects, install that directory with a GitHub skill
+installer or copy it to `~/.agents/skills/f1verse`. It works with the Python
+package or a connected MCP server. Installing the skill does not connect MCP.
+
+For MCP, configure your client with:
 
 ```json
 {"mcpServers": {"f1verse": {"command": "uvx", "args": ["--from", "f1verse", "f1verse-mcp"]}}}
 ```
 
-That is the whole setup — the server is standard library only, so it
-starts and answers `tools/list` in about 140 ms instead of unpacking a
-scientific stack into a throwaway environment first. Eight tools, not
-eighty: a model picks the right one.
+The `uvx` launcher installs the package on demand; the server itself has no
+runtime dependencies. Discover tools with `tools/list`, analysis instructions
+with `resources/list`, and the `race-brief` and `strategy-review` templates
+with `prompts/list`. Resources and prompts do not fetch race data. The tool
+catalogue includes input/output schemas and read-only hints; call
+`f1verse.tools()` for the current list.
+
+The server manifest is [server.json](server.json), and its official registry
+name is [`io.github.jinsim/f1verse`](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.jinsim%2Ff1verse).
+An MCP registry listing and a GitHub agent skill are separate distribution
+paths; publishing one does not publish the other. A clone runs local changes
+with `python -m f1verse.mcp` after `pip install -e .`; `uvx` runs the latest
+published PyPI version, which may differ from this checkout.
 
 For any other LLM pipeline, the library describes itself:
 
@@ -274,20 +297,24 @@ f1verse.standings(2026)
 
 ### Tyre life, and what the stewards struck out
 
+Fuel load is not observed. For 2026 onward, `stint_degradation` returns a raw
+clean-lap trend and declines fuel-corrected wear unless you supply an explicit
+`fuel_model` scenario. Earlier seasons retain labelled legacy assumptions.
+`tyre_outlook` is a constant-trend scenario, not measured physical tyre life.
+
 ```python
-f1verse.stint_degradation(race)[3]
-# {'driver': 'NOR', 'stint': 2, 'compound': 'HARD', 'tyre_age_at_start': 0,
-#  'clean_laps_used': 18, 'degradation_s_per_lap': 0.041}
+stints = f1verse.stint_degradation(race)
+# Each row includes raw_trend_s_per_lap, fuel_model, evidence and sample size.
 
 f1verse.circuit_abrasion(race)
-# {'factor': 1.4, 'verdict': 'abrasive', 'samples': 55}
+# 2026+ without a fuel scenario: factor=None, verdict='unknown', with a reason.
 
 f1verse.tyre_outlook(race)          # projected to the cliff
 ```
 
-A car gets faster all race as it burns fuel, so raw lap times understate
-degradation on every stint. Rates are fitted to **fuel-normalised clean
-laps only**, and a stint with too few of them returns
+A car's fuel burn can mask tyre wear. Corrected rates use a declared fuel
+scenario and **clean laps only**. Assumptions and sensitivity accompany the
+number. A stint with too few laps returns
 `{'degradation_s_per_lap': None, 'reason': 'too few clean laps'}` rather
 than a number fitted to noise.
 
@@ -377,8 +404,10 @@ result = f1verse.narrate(
 ```
 
 `narrate` accepts any text-generation callback; f1verse has no model SDK
-dependency. Drafts are checked against the structured fact sheet. Unknown
-numbers and driver codes are rejected, generation is retried at most twice,
+dependency. The callback selects IDs from `fact_catalog(facts)` by returning
+JSON such as `{"fact_ids": ["result.winner", "led.NOR"]}`. Python renders the
+selected facts. A limited grammar of exact fact-bound phrases is also accepted;
+arbitrary free prose is not verified. Generation is retried at most twice,
 and a deterministic summary is returned if verification still fails. The
 optional cache is exact-match only and stores verified text.
 
@@ -408,9 +437,9 @@ A simulated finish is **resampled from the positions that driver has
 actually finished in**, not drawn from a curve around their average. The
 distinction decides championships: alternating wins and retirements is a
 different proposition from finishing fourth every weekend, and the mean
-is the same for both. Retirements fire at each driver's measured rate,
-sprints score on their own table, and ties break on wins then seconds,
-as the regulations do.
+is the same for both. Retirement uncertainty uses a declared Beta prior;
+sprints draw their own outcomes and score on their own table. The model's
+countback and other limitations are listed in `assumptions`.
 
 Every run also re-draws the driver's own level first, bootstrapping their
 results before playing the season against that version of them — twelve
@@ -418,15 +447,31 @@ races is a small sample, and treating it as settled truth is how a
 forecast becomes more confident than anyone should be.
 
 ```python
-f1verse.backtest_projection()      # does the model deserve to be believed?
-# {'by_confidence': {'over_90': {'n': 5, 'correct': 5, 'rate': 1.0},
-#                    'under_60': {'n': 2, 'correct': 0, 'rate': 0.0}}, ...}
+report = f1verse.backtest_projection(checkpoints=[4, 8, 12])
+report["scores"]                  # multiclass Brier, log loss and calibration
+report["uniform_baseline"]        # same cases and field
+report["points_interval"]         # coverage, width and central 80% interval score
+report["excluded"]                # failed or incomplete cases remain visible
 ```
 
-Replayed at round 12 of 2019-2025 it went 5/5 when it claimed 90%+; both
-misses were seasons it had itself called at 53% and 57% — the two that ran
-to the final round. Read the buckets, not the headline: a model that says
-55% and is wrong has done nothing wrong.
+These are replays using today's corrected data and calendar, not a record of
+predictions issued at the time. Multiple checkpoints in one season are dependent;
+the effective sample is seasons, not the number of driver probabilities.
+
+### Evidence-linked changes
+
+```python
+race.events()                      # stable IDs, revisions and source references
+race.turning_points(limit=5)        # retrospective candidates; explicit heuristic
+f1verse.pace_changes(race)          # persistent shifts; no inferred cause
+f1verse.retirement_risk([race])     # descriptive survival; finishers censored
+f1verse.source_status()            # last observed access state, no network probe
+```
+
+`pace_changes` compares adjacent clean-lap windows without crossing excluded or
+missing laps. It uses future laps, so it is not a live detector. Neither a gap
+change nor a pace shift identifies a causal effect. Survival uses completed-lap
+exposure and all-cause DNF flags; it does not identify physical tyre life.
 
 > `championship_prediction` (in `feeds`) is a different thing — F1's own
 > live "if it ended now" table. `championship_projection` is this model.

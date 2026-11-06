@@ -26,6 +26,7 @@ from __future__ import annotations
 from collections import Counter
 
 from ._json import jsonsafe
+from ._evidence import evidence
 from .history import circuit_history
 from .sources import jolpica
 
@@ -41,7 +42,8 @@ def grid_base_rates(start: int = 2015, end: int = 2025) -> dict:
             if g.isdigit():
                 wins[int(g)] += 1
     return {"window": f"{start}-{end}", "races": races,
-            "rates": {p: wins[p] / races for p in range(1, 21)},
+            "rates": {p: wins[p] / races if races else None
+                      for p in range(1, max([20] + list(wins)) + 1)},
             "wins": dict(wins)}
 
 
@@ -74,21 +76,26 @@ def win_probabilities(grid: dict, *, year: int, upto_round: int,
             pole-to-win conversion.
         base: reuse a ``grid_base_rates`` result instead of recomputing.
     """
-    base = base or grid_base_rates()
+    if base is None:
+        end = min(year - 1, 2025)
+        base = grid_base_rates(max(1950, end - 10), end)
     rates = base["rates"]
     form = recent_form(year, upto_round)
     evidence = {"grid_base": base["window"], "races_sampled": base["races"]}
 
     pole_conv = None
     if circuit_id:
-        h = circuit_history(circuit_id)
-        pole_conv = h.get("pole_to_win_rate")
-        evidence["circuit"] = {"id": circuit_id, "races_held": h["races_held"],
+        winners = jolpica.paged(f"circuits/{circuit_id}/results/1", "RaceTable", "Races")
+        prior = [r for r in winners if int(r["season"]) < year or
+                 (int(r["season"]) == year and int(r["round"]) <= upto_round)]
+        pole_conv = (sum(r["Results"][0].get("grid") == "1" for r in prior) / len(prior)
+                     if prior else None)
+        evidence["circuit"] = {"id": circuit_id, "races_held": len(prior),
                                "pole_to_win_rate": pole_conv}
 
     scores, detail = {}, {}
     for drv, slot in grid.items():
-        p = rates.get(int(slot), 0.001) or 0.001
+        p = rates.get(int(slot), rates.get(str(slot), 0.001)) or 0.001
         note = {"grid": int(slot), "grid_base_rate": round(p, 4)}
         # Blend the global pole rate toward this circuit's own conversion.
         if pole_conv is not None and int(slot) == 1:
@@ -110,6 +117,8 @@ def win_probabilities(grid: dict, *, year: int, upto_round: int,
              sorted(scores.items(), key=lambda kv: -kv[1])}
     return jsonsafe({"probabilities": probs, "evidence": evidence,
                      "per_driver": detail,
+                     "claim_kind": "model_estimate",
+                     "calibration": "not established; normalized heuristic scores",
                      "method": "grid base rate x circuit conversion x recent form,"
                                " normalised"})
 
@@ -139,8 +148,34 @@ def strategy_rollout(total_laps: int, base_pace_s: float, candidates: list,
     an opinion. Same ``seed`` in, same numbers out.
     """
     import random as _random
+    import math
+    if (isinstance(runs, bool) or not isinstance(runs, int) or not 1 <= runs <= 100000
+            or isinstance(total_laps, bool) or not isinstance(total_laps, int) or total_laps < 1):
+        raise ValueError("runs must be 1..100000 and total_laps must be a positive integer")
+    if (not math.isfinite(base_pace_s) or base_pace_s <= 0
+            or not 0 <= sc_chance_per_lap <= 1 or not 0 <= sc_pit_saving <= 1
+            or not math.isfinite(pit_loss_s) or pit_loss_s < 0
+            or not math.isfinite(lap_noise_s) or lap_noise_s < 0):
+        raise ValueError("pace, pit loss, noise and safety-car probabilities are invalid")
+    if (not isinstance(candidates, list) or not candidates or any(
+            not isinstance(c, dict) or not isinstance(c.get("name"), str)
+            or not c["name"] or not isinstance(c.get("stints"), list)
+            or any(not isinstance(s, dict) or "until" not in s for s in c["stints"])
+            for c in candidates)):
+        raise ValueError("candidates need a name and a stints list with until laps")
+    if len({c["name"] for c in candidates}) != len(candidates):
+        raise ValueError("candidates must have distinct names")
+    for c in candidates:
+        ends = [s["until"] for s in c["stints"]]
+        if (not ends or any(isinstance(x, bool) or not isinstance(x, int) or x < 1
+                            for x in ends) or ends != sorted(set(ends))
+                or ends[-1] != total_laps):
+            raise ValueError(f"{c['name']}: stint ends must increase and end at total_laps")
     wear = dict(_ORDINARY_ROLLOUT_WEAR)
     wear.update(wear_s_per_lap or {})
+    if any(not isinstance(v, (int, float)) or not math.isfinite(v) or v < 0
+           for v in wear.values()):
+        raise ValueError("wear_s_per_lap needs finite nonnegative rates")
     rng = _random.Random(seed)
     totals = {c["name"]: [] for c in candidates}
     for _ in range(runs):
@@ -185,6 +220,7 @@ def strategy_rollout(total_laps: int, base_pace_s: float, candidates: list,
     out.sort(key=lambda e: e["median_s"])
     return jsonsafe({
         "candidates": out,
+        "claim_kind": "parameter_scenario", "calibration": "not established",
         "assumptions": {"total_laps": total_laps,
                         "base_pace_s": base_pace_s,
                         "wear_s_per_lap": wear, "pit_loss_s": pit_loss_s,
@@ -257,28 +293,38 @@ def _season_form(year: int, upto_round: int) -> dict:
     driver's retirement rate is measured here, never assumed.
     """
     from .sources import jolpica
-    finishes, started, retired = {}, {}, {}
+    finishes, started, retired, missing, counts = {}, {}, {}, [], {}
     for rnd in range(1, upto_round + 1):
         try:
             races = jolpica.get(f"{year}/{rnd}/results")["RaceTable"]["Races"]
-        except Exception:
+        except (OSError, RuntimeError, KeyError, ValueError) as exc:
+            missing.append({"round": rnd, "reason": type(exc).__name__})
             continue
         if not races:
+            missing.append({"round": rnd, "reason": "no results"})
             continue
         for r in races[0].get("Results", []):
             code = r["Driver"].get("code") or r["Driver"]["driverId"]
-            started[code] = started.get(code, 0) + 1
             status = r.get("status", "")
+            if status in ("Did not start", "Did not qualify", "Withdrew", "Did not prequalify"):
+                continue
+            started[code] = started.get(code, 0) + 1
+            if r["position"].isdigit():
+                pos = int(r["position"])
+                counts.setdefault(code, {})[pos] = counts.setdefault(code, {}).get(pos, 0) + 1
             if status == "Finished" or status.startswith("+"):
                 if r["position"].isdigit():
                     finishes.setdefault(code, []).append(int(r["position"]))
             else:
                 retired[code] = retired.get(code, 0) + 1
-    return {c: {"finishes": sorted(v),
+    result = {c: {"finishes": sorted(v),
+                "position_counts": counts.get(c, {}),
                 "started": started.get(c, 0),
                 "retired": retired.get(c, 0),
                 "dnf_rate": round(retired.get(c, 0) / max(started.get(c, 1), 1), 3)}
             for c, v in finishes.items()}
+    result["_coverage"] = {"requested_rounds": upto_round, "missing": missing}
+    return result
 
 
 def remaining_rounds(year: int, after_round: int) -> list:
@@ -304,7 +350,12 @@ def title_scenarios(year: int, as_of: int | None = None) -> dict:
     """
     rows, done = _standings_at(year, as_of)
     left = remaining_rounds(year, done)
-    max_left = sum(25 + (8 if r["sprint"] else 0) for r in left)
+    if year < 2010:
+        raise ValueError("title scenarios support points rules from 2010 onward")
+    sprint_max = 3 if year == 2021 else 8
+    fastest_bonus = 1 if 2019 <= year <= 2024 else 0
+    max_left = sum((50 if year == 2014 and r["round"] == 19 else 25) +
+                   fastest_bonus + (sprint_max if r["sprint"] else 0) for r in left)
     leader = rows[0]["points"] if rows else 0.0
     alive = []
     for r in rows:
@@ -323,6 +374,8 @@ def title_scenarios(year: int, as_of: int | None = None) -> dict:
         "leader": rows[0]["name"] if rows else None,
         "drivers": alive,
         "still_alive": sum(1 for a in alive if a["still_possible"]),
+        "assumptions": {"full_distance_points": True, "fastest_lap_max": fastest_bonus,
+                        "tied_maximum": "conservatively retained; countback may still decide"},
     })
 
 
@@ -352,18 +405,19 @@ def championship_projection(year: int, runs: int = 20000, seed: int = 0,
     """
     import random as _random
 
+    if isinstance(runs, bool) or not isinstance(runs, int) or not 1 <= runs <= 100000:
+        raise ValueError("runs must be an integer between 1 and 100000")
+    if isinstance(min_races, bool) or not isinstance(min_races, int) or min_races < 1:
+        raise ValueError("min_races must be a positive integer")
+    if year < 2010:
+        raise ValueError("championship projection supports points rules from 2010 onward")
+
     rows, done = _standings_at(year, as_of)
     left = remaining_rounds(year, done)
-    form = _season_form(year, done)
 
     # Only drivers with enough races to resample from are projected; the
     # rest keep their points but are reported as unmodelled rather than
     # silently given a zero.
-    modelled = {r["name"]: form[r["name"]] for r in rows
-                if r["name"] in form
-                and len(form[r["name"]]["finishes"]) >= min_races}
-    skipped = [r["name"] for r in rows if r["name"] not in modelled]
-
     start_pts = {r["name"]: r["points"] for r in rows}
     start_wins = {r["name"]: r["wins"] for r in rows}
 
@@ -371,6 +425,17 @@ def championship_projection(year: int, runs: int = 20000, seed: int = 0,
         champ = rows[0]["name"] if rows else None
         return jsonsafe({"settled": True, "champion": champ,
                          "after_round": done, "rounds_left": 0})
+
+    form = _season_form(year, done)
+    modelled = {r["name"]: form[r["name"]] for r in rows
+                if r["name"] in form
+                and len(form[r["name"]]["finishes"]) >= min_races}
+    skipped = [r["name"] for r in rows if r["name"] not in modelled]
+    coverage = form.get("_coverage", {"requested_rounds": done, "missing": []})
+    if not modelled:
+        return jsonsafe({"after_round": done, "rounds_left": len(left), "drivers": [],
+                         "not_modelled": skipped, "coverage": coverage,
+                         "complete": False, "reason": "too few classified finishes"})
 
     rng = _random.Random(seed)
     titles = {c: 0 for c in modelled}
@@ -387,13 +452,15 @@ def championship_projection(year: int, runs: int = 20000, seed: int = 0,
         for c, f in modelled.items():
             n = len(f["finishes"])
             level[c] = {"finishes": [rng.choice(f["finishes"]) for _ in range(n)],
-                        "dnf_rate": min(max(rng.gauss(
-                            f["dnf_rate"],
-                            (f["dnf_rate"] * (1 - f["dnf_rate"]) / max(f["started"], 1)) ** 0.5
-                        ), 0.0), 0.6)}
+                        "dnf_rate": rng.betavariate(
+                            f["retired"] + 0.5, max(f["started"] - f["retired"], 0) + 0.5)}
         pts = {c: start_pts.get(c, 0.0) for c in modelled}
-        wins = {c: start_wins.get(c, 0) for c in modelled}
-        seconds = {c: 0 for c in modelled}
+        places = {}
+        for c in modelled:
+            supplied = modelled[c].get("position_counts")
+            places[c] = (dict(supplied) if supplied is not None else
+                         dict(Counter(modelled[c]["finishes"])))
+            places[c][1] = start_wins.get(c, 0)
         for rnd in left:
             draws, out = {}, []
             for c, f in level.items():
@@ -403,18 +470,22 @@ def championship_projection(year: int, runs: int = 20000, seed: int = 0,
                     draws[c] = rng.choice(f["finishes"])
             order = _order_from_draws(draws, rng)
             for i, c in enumerate(order, start=1):
-                pts[c] += RACE_POINTS.get(i, 0)
-                if i == 1:
-                    wins[c] += 1
-                elif i == 2:
-                    seconds[c] += 1
+                pts[c] += RACE_POINTS.get(i, 0) * (
+                    2 if year == 2014 and rnd["round"] == 19 else 1)
+                places[c][i] = places[c].get(i, 0) + 1
             if rnd["sprint"]:
                 # a sprint is its own short race; the same form applies
                 sp_draws = {c: rng.choice(level[c]["finishes"])
-                            for c in level if c not in out}
+                            for c in level if rng.random() >= level[c]["dnf_rate"]}
+                sprint_points = {1: 3, 2: 2, 3: 1} if year == 2021 else SPRINT_POINTS
                 for i, c in enumerate(_order_from_draws(sp_draws, rng), 1):
-                    pts[c] += SPRINT_POINTS.get(i, 0)
-        champ = max(pts, key=lambda c: (pts[c], wins[c], seconds[c]))
+                    pts[c] += sprint_points.get(i, 0)
+        depth = max([len(modelled)] + [p for counts in places.values() for p in counts])
+        keys = {c: (pts[c],) + tuple(places[c].get(p, 0) for p in range(1, depth + 1))
+                for c in pts}
+        best = max(keys.values())
+        tied = [c for c, value in keys.items() if value == best]
+        champ = tied[0] if len(tied) == 1 else rng.choice(sorted(tied))
         titles[champ] += 1
         for c in modelled:
             finals[c].append(pts[c])
@@ -438,19 +509,32 @@ def championship_projection(year: int, runs: int = 20000, seed: int = 0,
         "sprints_left": sum(1 for r in left if r["sprint"]),
         "drivers": out,
         "not_modelled": skipped,
+        "coverage": coverage,
+        "complete": not skipped and not coverage["missing"],
+        "probability_scope": "conditional on the modelled field and available rounds",
+        "evidence": evidence("season_position_resampling", {
+            "year": year, "after_round": done, "standings": rows, "form": form,
+            "remaining_schedule": left, "runs": runs, "seed": seed},
+            sample_unit="completed race; driver outcomes within a race are dependent",
+            samples=done - len(coverage["missing"]),
+            uncertainty={"kind": "bootstrap plus simulation; not calibrated prediction intervals"},
+            assumptions=["current rules and future full-distance events",
+                         "schedule is retrieved now, not a historical schedule vintage"]),
         "assumptions": {
             "method": "resampled from each driver's own finishing "
                       "positions this season; draws re-ranked into a "
                       "valid race order",
-            "retirements": "each driver's measured rate this season, "
-                           "itself resampled per run",
+            "retirements": "Beta(retired + 0.5, finished + 0.5) per run; "
+                           "independent sprint and race draws",
             "level_uncertainty": "each run bootstraps the driver's own "
                                  "results before playing the season, so "
                                  "a small sample widens the answer "
                                  "instead of hiding in it",
-            "tiebreak": "points, then wins, then second places",
+            "tiebreak": "points, then counts at every race finishing position; "
+                        "unresolved equal countback drawn uniformly",
             "ignores": ["car development", "weather", "team orders",
-                        "penalties", "driver changes"],
+                        "penalties", "driver changes", "pre-2025 fastest-lap bonus",
+                        "shared retirement shocks", "FIA discretion after identical countback"],
             "runs": runs, "seed": seed, "min_races": min_races,
         },
     })
@@ -458,7 +542,7 @@ def championship_projection(year: int, runs: int = 20000, seed: int = 0,
 
 def backtest_projection(first: int = 2019, last: int = 2025,
                         as_of: int = 12, runs: int = 1500,
-                        seed: int = 1) -> dict:
+                        seed: int = 1, *, checkpoints=None) -> dict:
     """Replay the projection on finished seasons and score it.
 
     A probability nobody has checked is decoration. This runs the same
@@ -471,28 +555,65 @@ def backtest_projection(first: int = 2019, last: int = 2025,
     the only way a hit rate off a handful of seasons means anything.
     """
     from .history import standings
-    cases = []
+    from .evaluation import forecast_scores
+    from datetime import datetime, timezone
+    if first > last or last >= datetime.now(timezone.utc).year:
+        raise ValueError("backtest needs finished calendar years, first <= last")
+    cuts = sorted(set(checkpoints if checkpoints is not None else [as_of]))
+    if not cuts or any(isinstance(c, bool) or not isinstance(c, int) or c < 1 for c in cuts):
+        raise ValueError("checkpoints must contain positive integer rounds")
+    cases, excluded, baseline_cases, forecast_cases, interval_cases = [], [], [], [], []
     for year in range(first, last + 1):
         try:
-            actual = standings(year)["standings"][0]["name"]
-            p = championship_projection(year, runs=runs, seed=seed,
-                                        as_of=as_of)
-        except Exception:
+            final = standings(year)["standings"]
+            actual = final[0]["name"]
+        except (OSError, RuntimeError, KeyError, IndexError, ValueError) as exc:
+            excluded.append({"year": year, "reason": type(exc).__name__})
             continue
-        if p.get("settled") or not p.get("drivers"):
-            continue
-        top = p["drivers"][0]
-        cases.append({"year": year, "predicted": top["driver"],
-                      "claimed_probability": top["title_probability"],
-                      "actual": actual,
-                      "correct": top["driver"] == actual})
+        for cutoff in cuts:
+            try:
+                p = championship_projection(year, runs=runs, seed=seed, as_of=cutoff)
+            except (OSError, RuntimeError, KeyError, ValueError) as exc:
+                excluded.append({"year": year, "as_of": cutoff, "reason": type(exc).__name__})
+                continue
+            if p.get("settled") or not p.get("drivers") or not p.get("complete", True):
+                excluded.append({"year": year, "as_of": cutoff,
+                                 "reason": "settled or incomplete projection",
+                                 "coverage": p.get("coverage")})
+                continue
+            probabilities = {r["driver"]: r["title_probability"] for r in p["drivers"]}
+            if actual not in probabilities:
+                excluded.append({"year": year, "as_of": cutoff,
+                                 "reason": "actual champion not modelled"})
+                continue
+            top = p["drivers"][0]
+            cases.append({"year": year, "as_of_round": cutoff, "predicted": top["driver"],
+                          "claimed_probability": top["title_probability"],
+                          "actual": actual, "correct": top["driver"] == actual})
+            forecast_cases.append({"year": year, "as_of_round": cutoff,
+                                   "probabilities": probabilities, "actual": actual})
+            # Uniform over the exact same field; no future outcome in this baseline.
+            baseline_cases.append({"year": year, "as_of_round": cutoff,
+                                   "probabilities": {c: 1 / len(probabilities)
+                                                     for c in probabilities}, "actual": actual})
+            points = {r["name"]: r["points"] for r in final}
+            for row in p["drivers"]:
+                if row["driver"] not in points:
+                    continue
+                lo, hi = row["projected_points_p10"], row["projected_points_p90"]
+                y = points[row["driver"]]
+                # Central 80% interval score: width + (2/alpha) * missed distance.
+                interval_cases.append({"year": year, "as_of": cutoff,
+                    "covered": lo <= y <= hi, "width": hi - lo,
+                    "score": hi - lo + 10 * max(lo - y, y - hi, 0)})
     buckets = {"over_90": [], "60_to_90": [], "under_60": []}
     for c in cases:
         q = c["claimed_probability"]
         key = "over_90" if q >= 0.9 else "60_to_90" if q >= 0.6 else "under_60"
         buckets[key].append(c["correct"])
     return jsonsafe({
-        "seasons_tested": len(cases),
+        "seasons_tested": len({c["year"] for c in cases}),
+        "forecasts_tested": len(cases), "checkpoints": cuts, "excluded": excluded,
         "as_of_round": as_of,
         "cases": cases,
         "hit_rate": (round(sum(c["correct"] for c in cases) / len(cases), 3)
@@ -500,6 +621,17 @@ def backtest_projection(first: int = 2019, last: int = 2025,
         "by_confidence": {k: {"n": len(v), "correct": sum(v),
                               "rate": round(sum(v) / len(v), 3) if v else None}
                           for k, v in buckets.items()},
-        "note": "small sample; the confidence buckets say more than the "
-                "headline rate",
+        "scores": forecast_scores(forecast_cases),
+        "uniform_baseline": forecast_scores(baseline_cases),
+        "points_interval": {
+            "nominal_coverage": 0.8, "n": len(interval_cases),
+            "observed_coverage": sum(r["covered"] for r in interval_cases) / len(interval_cases)
+                                 if interval_cases else None,
+            "mean_width": sum(r["width"] for r in interval_cases) / len(interval_cases)
+                          if interval_cases else None,
+            "mean_interval_score": sum(r["score"] for r in interval_cases) / len(interval_cases)
+                                   if interval_cases else None},
+        "note": "retrospective replay with current corrected sources and schedule, "
+                "not an issued-forecast ledger; repeated checkpoints within a season "
+                "are dependent; small sample and no causal claim",
     })

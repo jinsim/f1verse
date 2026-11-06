@@ -3,6 +3,76 @@
 Versions follow [semantic versioning](https://semver.org). Published
 releases are immutable; a fix ships as a new patch version.
 
+## 0.15.0
+
+### Agent workflows
+
+- Add the repository-discoverable `f1verse` agent skill for evidence-backed
+  analysis through Python or a connected MCP server. The README separates
+  skill installation, server connection and registry publication.
+- MCP adds offline `f1verse://guide` and catalogue resources, plus `race-brief`
+  and `strategy-review` prompts. Tool definitions still come from `_tools.py`.
+  Validate JSON-RPC envelopes and reject non-JSON numeric constants without
+  interrupting subsequent requests.
+- `f1_tyre_wear` accepts an explicit `fuel_model` scenario with validated
+  units, required coefficients and finite nonnegative numbers. Its description
+  states the same era limits as the Python API.
+
+### Release operations
+
+- Serialize package, registry and documentation deployments without cancelling
+  a cutover. Bound job durations and keep build artifacts for three days.
+- Validate both distributions before publishing. The registry checks out the
+  released commit and verifies that its exact package version is on PyPI.
+  The tag's publish gate replaces the duplicate standalone tag gate; the
+  Python 3.9/3.12 release test matrix remains required.
+
+### Evidence and analysis
+
+- `race_events`, `Race.events` and `f1_race_events` add stable event IDs,
+  content revisions, duplicate-safe replay and per-source evidence. The
+  timeline retains its existing fields and adds evidence metadata.
+- `turning_points`, `Race.turning_points` and `f1_turning_points` rank
+  retrospective candidates with explicit heuristic weights, not causal effects.
+- `pace_changes` and `f1_pace_changes` detect persistent clean-stint pace shifts
+  without crossing missing/excluded laps or claiming the cause.
+- `retirement_risk` and `f1_retirement_risk` report descriptive all-cause survival
+  with finishers censored, exposure, excluded cases and dependence caveats.
+- `forecast_scores` adds proper probability scores and calibration.
+  `backtest_projection` supports multiple checkpoints, same-case baselines,
+  interval scores and explicit failed/incomplete cases. Forecast replays use
+  corrected current sources and are not issued-forecast records.
+- Projection retirement uncertainty uses a stated Beta prior; sprint outcomes
+  are drawn separately. Empty/incomplete samples are explicit. Title eligibility
+  accounts for the historical fastest-lap bonus and 2021 sprint points.
+- Default grid/circuit base rates no longer read races after the forecast cutoff.
+
+### Correctness and access
+
+- `configure_source`, `source_status` and `f1_source_status` add memory-only
+  source HTTP headers and safe, actionable access diagnostics. No login, token
+  renewal or WebSocket authentication is implied. Stale-on-error is visible
+  across restarts and blocks publication; optional missing feeds remain distinct
+  from empty datasets.
+- Live and force-refresh TTLs cover all session feeds. Growing cached bodies are
+  fetched again before immutable promotion. Minute budgets count retries and
+  host pacing respects OpenF1's minute limit and FIA's crawl delay.
+- `fact_catalog` binds narration IDs to exact facts. Generated selections are
+  rendered by Python; incorrect driver/value associations and unverified prose
+  are rejected even when their tokens appear in the facts. Cached drafts are
+  checked again and generation is capped at two attempts.
+- Corrected tyre wear for 2026+ requires an explicit caller fuel scenario;
+  raw trends, assumptions and parameter sensitivity remain inspectable.
+  Tyre outlook is labelled as a scenario, not physical life or a calibrated
+  prediction interval. The running-pace filter now advances its mean correctly.
+- Crosschecks label internal versus same-provider endpoint comparisons and skip
+  sector-sum checks with no comparable observations. Telemetry does not label
+  obsolete DRS values as observed 2026 energy/aero modes.
+- MCP negotiates its supported version, validates input values, survives malformed
+  messages and advertises output envelopes and read-only annotations.
+- `pytest --offline` runs deterministic checks without fetching the reference
+  race. `METHODOLOGY.md` documents assumptions, scientific references and limits.
+
 ## 0.14.0
 
 **A circuit stops being a name on a calendar: f1verse now publishes what a

@@ -232,7 +232,18 @@ class Race(Session):
                 "over": prev["abbr"],
                 "title": f"{cur['abbr']} leads (from {prev['abbr']})"}
                for prev, cur in zip(runs, runs[1:])]
-        return sorted(ev, key=lambda e: (e["lap"], e["kind"]))
+        from .events import _stamp
+        return _stamp(self, ev)
+
+    def events(self) -> dict:
+        """Evidence-linked events, including observed pit-cycle changes."""
+        from .events import race_events
+        return race_events(self)
+
+    def turning_points(self, limit: int = 10) -> dict:
+        """Retrospective highlight candidates; no causal or probability claim."""
+        from .events import turning_points
+        return turning_points(self, limit=limit)
 
     def crosscheck(self) -> dict:
         """Independent-source validation — gate publication on this."""
@@ -268,7 +279,8 @@ class Race(Session):
             "race_pace": self.race_pace(),
             "interruptions": self.interruptions(),
             "state": self.lifecycle,
-            "sources": ["openf1", "livetiming-index"],
+            "sources": ["openf1"],
+            "availability": self.availability(),
         })
 
 

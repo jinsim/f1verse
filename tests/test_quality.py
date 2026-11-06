@@ -179,7 +179,7 @@ def test_provisional_sessions_recheck_the_rows_stewards_can_rewrite(
 
     for ep in ("session_result", "race_control", "stints", "pit"):
         assert seen[ep] == http.TTL_PROVISIONAL, ep
-    assert seen["laps"] == "auto"          # lap times are genuinely immutable
+    assert seen["laps"] is http.TTL_FOREVER  # explicit completed-lap policy
 
 
 def test_final_sessions_stop_rechecking(race, monkeypatch):

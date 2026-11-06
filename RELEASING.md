@@ -56,14 +56,31 @@ after.
    ```
 
 The tag workflow repeats the tests on Python 3.9 and 3.12, verifies that the
-tag exactly matches `src/f1verse/_version.py`, builds both distributions, publishes to
+tag exactly matches `src/f1verse/_version.py`, builds and checks both distributions, publishes to
 PyPI through OIDC, and creates the matching GitHub Release. If any step fails,
 PyPI publication does not run.
 
 `mcp-registry.yml` then runs on its own, updating the listing in the official
 MCP registry — also through OIDC, also with nothing stored. It waits for the
 publish workflow to succeed, because a registry entry pointing at a version
-PyPI cannot serve is worse than no entry. There is nothing to do by hand.
+PyPI cannot serve is worse than no entry. Verify the workflow's conclusion
+and the entry returned by the official registry API for
+`io.github.jinsim/f1verse`, including its package version. A `server.json`
+file alone does not register a server. The official registry and GitHub's
+MCP directory are separate discovery surfaces; do not infer visibility in
+one from success in the other.
+
+The registry workflow checks out the commit that completed publication, rather
+than a later `main`, and confirms that version is installable on PyPI. Release,
+registry and Pages jobs are serialized without cancelling active cutovers;
+jobs have time limits and distribution artifacts expire after three days.
+
+The agent skill is versioned at `.agents/skills/f1verse/SKILL.md` and included
+in the source distribution. GitHub skill installers read that directory from
+the repository; PyPI installation does not install the skill into an agent's
+user configuration. Check the release's skill path and README link as well
+as the MCP package. To test unreleased MCP changes, install the checkout and
+run `python -m f1verse.mcp`; an unpinned `uvx` resolves a published package.
 
 Published PyPI versions and release tags are immutable. Fixes therefore use a
 new patch version rather than replacing an existing release.

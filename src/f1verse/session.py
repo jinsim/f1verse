@@ -65,19 +65,45 @@ class Session:
         than served from a copy taken at the flag.
         """
         key = {"session_key": self.session_key}
+        live = self.lifecycle in ("in_progress", "provisional")
         ttl = 0 if force else (http.TTL_FOREVER if self.lifecycle == "final"
                                else http.TTL_PROVISIONAL)
+        growing_ttl = 0 if force else (http.TTL_LIVE if live else http.TTL_FOREVER)
+        self._availability = {}
 
-        self.drivers = {d["driver_number"]: d
-                        for d in openf1.get("drivers", **key)}
-        self.laps = sorted(openf1.get("laps", **key),
+        def read(endpoint, *, optional=False, **params):
+            cache_ttl = ttl if endpoint in openf1.REVISABLE else growing_ttl
+            if live and not force:
+                cache_ttl = http.TTL_LIVE
+            try:
+                rows = openf1.get(endpoint, ttl=cache_ttl, **key, **params)
+            except (http.SourceUnavailable, OSError, http.BudgetExhausted) as exc:
+                if not optional:
+                    raise
+                self._availability[endpoint] = {
+                    "status": getattr(exc, "status", http._failure(exc)),
+                    "rows": None, "reason": str(exc)}
+                return []
+            meta = openf1.meta(endpoint, **key, **params)
+            self._availability[endpoint] = {
+                "status": "stale" if meta.get("stale_on_error") else "available",
+                "rows": len(rows), "reason": None}
+            return rows
+
+        self.drivers = {d["driver_number"]: d for d in read("drivers")}
+        self.laps = sorted(read("laps"),
                            key=lambda l: (l["driver_number"], l["lap_number"]))
-        self.result = openf1.get("session_result", ttl=ttl, **key)
-        self.race_control = openf1.get("race_control", ttl=ttl, **key)
-        self.stints_raw = openf1.get("stints", ttl=ttl, **key)
-        self.pits = openf1.get("pit", ttl=ttl, **key)
-        self._p1 = sorted(openf1.get("position", position=1, **key),
-                          key=lambda p: p["date"])
+        self.result = read("session_result")
+        self.race_control = read("race_control", optional=True)
+        self.stints_raw = read("stints", optional=True)
+        self.pits = read("pit", optional=True)
+        if getattr(self, "name", "Race") in ("Race", "Sprint"):
+            self._p1 = sorted(read("position", optional=True, position=1),
+                              key=lambda p: p["date"])
+        else:
+            self._p1 = []
+            self._availability["position"] = {"status": "not_applicable", "rows": None,
+                                              "reason": "P1 stream is not a classification input"}
         self.total_laps = max((l["lap_number"] for l in self.laps), default=0)
 
     def refresh(self):
@@ -105,8 +131,13 @@ class Session:
         """Live-timing archive path (resolved lazily, cached)."""
         if self._api_path is None:
             self._api_path = livetiming.api_path(
-                self.year, self.meeting["meeting_name"])
+                self.year, self.meeting["meeting_name"], self.name)
         return self._api_path
+
+    def availability(self) -> dict:
+        """Endpoint coverage; unavailable and empty are different states."""
+        from ._json import jsonsafe
+        return jsonsafe(getattr(self, "_availability", {}))
 
     # -- provenance ---------------------------------------------------------
     def provenance(self) -> dict:
@@ -115,15 +146,18 @@ class Session:
         rows = {"drivers": self.drivers, "laps": self.laps,
                 "session_result": self.result,
                 "race_control": self.race_control,
-                "stints": self.stints_raw, "pit": self.pits}
+                "stints": self.stints_raw, "pit": self.pits,
+                "position": self._p1}
         out = {}
         for ep, data in rows.items():
-            m = openf1.meta(ep, **key)
+            m = openf1.meta(ep, **key, **({"position": 1} if ep == "position" else {}))
             out[ep] = {"fetched_at": m["fetched_at"],
                        "age_seconds": m["age_seconds"],
                        "sha256": (m["sha256"] or "")[:16] or None,
                        "rows": len(data),
-                       "revisable": ep in openf1.REVISABLE}
+                       "revisable": ep in openf1.REVISABLE,
+                       "access": m.get("access", {}),
+                       "stale_on_error": m.get("stale_on_error", False)}
         return out
 
     def revisions(self) -> list:

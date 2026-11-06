@@ -24,13 +24,15 @@ REVISABLE = frozenset({"session_result", "race_control", "starting_grid",
 def get(endpoint: str, ttl: float | None = "auto", **params) -> list:
     """Fetch an OpenF1 endpoint.
 
-    ``ttl='auto'`` (default) caches schedule endpoints for a few hours and
-    everything else forever, because completed-session rows never change.
-    Endpoints in :data:`REVISABLE` are the exception; callers that know a
-    session's age pass an explicit ``ttl``.
+    ``ttl='auto'`` caches schedules for a few hours, revisable endpoints
+    provisionally, and other data forever. Session loaders pass explicit
+    lifecycle TTLs, including short-lived policies for growing live feeds.
     """
     if ttl == "auto":
-        ttl = _MUTABLE.get(endpoint, http.TTL_FOREVER)
+        # Without session age, a steward-revisable response cannot safely
+        # be called final. Session loaders pass their lifecycle policy.
+        ttl = _MUTABLE.get(endpoint, http.TTL_PROVISIONAL
+                           if endpoint in REVISABLE else http.TTL_FOREVER)
     return http.get_json(BASE + endpoint, params, ttl)
 
 
