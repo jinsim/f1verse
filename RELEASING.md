@@ -47,7 +47,9 @@ after.
    agent all read `_version.py`; the MCP registry manifest cannot read it,
    so `tests/test_docs.py` fails the moment the two disagree.
 2. Update user-facing documentation and commit the release.
-3. Confirm the `test` and `release-check` workflows are green on `main`.
+3. Confirm the deterministic `test` and `release-check` workflows are green
+   on `main`. The tag workflow must also pass the full network-backed matrix
+   before it can publish; upstream access failures do not count as passing.
 4. Create and push one annotated tag:
 
    ```bash
@@ -74,6 +76,12 @@ The registry workflow checks out the commit that completed publication, rather
 than a later `main`, and confirms that version is installable on PyPI. Release,
 registry and Pages jobs are serialized without cancelling active cutovers;
 jobs have time limits and distribution artifacts expire after three days.
+
+If OpenF1 restricts historical API access during a live session, a wait timer
+on `source-validation-vVERSION` can defer only that release's test jobs until
+free access resumes. Configure it before pushing the tag. This does not skip
+the full matrix or change the PyPI publisher's protection rules. Future tags
+use separate environments and inherit no timer from an older release.
 
 The agent skill is versioned at `.agents/skills/f1verse/SKILL.md` and included
 in the source distribution. GitHub skill installers read that directory from

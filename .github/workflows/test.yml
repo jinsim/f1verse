@@ -17,4 +17,6 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e . pytest
-      - run: pytest -q
+      # Fast deterministic validation on ordinary changes. The tag workflow
+      # keeps the full network-backed matrix as a required publication gate.
+      - run: pytest -q --offline

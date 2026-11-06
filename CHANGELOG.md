@@ -28,6 +28,10 @@ releases are immutable; a fix ships as a new patch version.
   Python 3.9/3.12 release test matrix remains required.
 - Pin test runners to Ubuntu 24.04, which provides Python 3.9 binaries;
   Ubuntu 26.04 is not supported by that interpreter's runner builds.
+- Ordinary CI runs deterministic checks; the full network-backed Python
+  3.9/3.12 matrix remains mandatory before publication. A release-specific
+  source-validation environment can delay that matrix during an upstream
+  live-session access blackout without running an idle worker.
 
 ### Evidence and analysis
 

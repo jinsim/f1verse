@@ -26,6 +26,9 @@ jobs:
   test:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    # A release-specific environment can defer source access during an
+    # upstream live-session blackout, before a runner is allocated.
+    environment: source-validation-${{ github.ref_name }}
     strategy:
       matrix:
         python-version: ["3.9", "3.12"]
