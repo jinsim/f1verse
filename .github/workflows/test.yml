@@ -5,7 +5,8 @@ on:
   pull_request:
 jobs:
   pytest:
-    runs-on: ubuntu-latest
+    # Python 3.9 has upstream runner builds through Ubuntu 24.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
       matrix:

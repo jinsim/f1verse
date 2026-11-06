@@ -24,7 +24,7 @@ jobs:
         with: { python-version: "3.12" }
       - run: python scripts/release_check.py --tag "$GITHUB_REF_NAME"
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
       matrix:

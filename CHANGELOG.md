@@ -26,6 +26,8 @@ releases are immutable; a fix ships as a new patch version.
   released commit and verifies that its exact package version is on PyPI.
   The tag's publish gate replaces the duplicate standalone tag gate; the
   Python 3.9/3.12 release test matrix remains required.
+- Pin test runners to Ubuntu 24.04, which provides Python 3.9 binaries;
+  Ubuntu 26.04 is not supported by that interpreter's runner builds.
 
 ### Evidence and analysis
 
